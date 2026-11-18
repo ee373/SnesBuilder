@@ -1,0 +1,9 @@
+PASS:  384 independent mapper and SRAM-A19 cases
+1MiB: 0 0 0 0 0 0 0 0
+2MiB: 0 1 0 1 0 1 0 1
+3MiB: 0 1 2 2 0 1 2 2
+4MiB: 0 1 2 3 0 1 2 3
+5MiB: 0 1 2 3 4 4 4 4
+6MiB: 0 1 2 3 4 5 4 5
+7MiB: 0 1 2 3 4 5 6 6
+8MiB: 0 1 2 3 4 5 6 7
