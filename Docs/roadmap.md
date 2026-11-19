@@ -1,56 +1,56 @@
 # 詳細設計・検証・開発工程
 
-Rev0.8 / 2026-11-19。採用構成はPSoC CY8C5287AXI-LP095、CPLD LC4064V-75TN100C、SN74LVC16T245DLR、8MiB NOR、128KiB SRAMである。高速ROMアクセスはCPLDに集約し、ROMミラーリングはNORへのソフトウェア事前展開で行う。
+Rev0.8 / 2026-11-19。採用構成はPSoC CY8C5287AXI-LP095、CPLD AG256SL100、SN74LVC8T245DBR×1、74LVC245APW,118×5、8MiB NOR、128KiB SRAMである。高速ROMアクセスはCPLDに集約し、ROMミラーリングはNORへのソフトウェア事前展開で行う。
 
 ## 1. 未確定事項と優先順位
 
 | 優先 | 項目 | 判定基準 |
 |---|---|---|
-| 最優先 | CPLDの論理収容 | 64マクロセル、50汎用I/O＋専用入力4本、全OE条件でLatticeフィッタに通る |
-| 最優先 | FastROMタイミング | SFCアドレス/ROMSEL/RD→NOR70ns→16T245→SFCデータが120ns以内 |
-| 最優先 | バス競合 | SFC/ARM切替中にMEMアドレス/データ/CE/OE/WEの同時出力がない |
-| 最優先 | CPLD pinout | 100-TQFPの5V入力許容、GOE、専用入力、JTAG、マクロセル・配線条件 |
+| 最優先 | CPLDの論理収容 | 256 LUT、54/80ユーザーI/O、全OE条件でAGM Supraフィッティングが通る |
+| 最優先 | FastROMタイミング | SFCアドレス/ROMSEL/RD→LVC245A→AG256→NOR70ns→8T245→SFCデータが120ns以内 |
+| 最優先 | バス競合 | SFC/ARM切替中にMEMアドレス/データが競合せず、メモリ制御4出力はAG256だけが駆動 |
+| 最優先 | CPLD pinout | 100-LQFPの3.3V I/Oバンク、JTAG、54本の論理信号割当て、LUT・配線条件 |
 | 最優先 | PSoC pinout | P0 D、P5 MEM D、P3 CFG、P4 A15/MEM_BUS_OE/DVDACのCreator配置 |
-| 高 | 16T245の電気仕様 | 5V側入力HIGH条件（3.5V級）、DIR/OEの3.3V基準、双電源立上りの安全性 |
+| 高 | 8T245・LVC245Aの電気仕様 | 8T245の5V側入力HIGH条件、LVC245Aの5V許容入力、DIR/OEの3.3V基準、電源立上りの安全性 |
 | 高 | ROM4形式 | HiROM/ExHiROM/LoROM/ExLoROMの全バンクとSRAMデコード一致 |
 | 高 | ゲームローダ | 元ROMのミラー規則を保持したNORイメージ展開と書込済みキャッシュ |
-| 高 | ブート6バイト | SPECIAL_SEL→PSoC P0応答、NOR/16T245排他、$2F6000のSRAM BIOS |
+| 高 | ブート6バイト | SPECIAL_SEL→PSoC P0応答、NOR/8T245排他、$2F6000のSRAM BIOS |
 | 高 | ARM所有中の通信 | ARMがMEMを使用する間も$5000 FIFO/レジスタが継続動作 |
 | 高 | SRAM保持 | CE2、低漏れ電流、CR2032、電源喪失時のデータ保護 |
 | 高 | リセット/CIC | /RESETオープンドレイン制御、電源投入直後の未初期化バス、安全な解除 |
 | 中 | DVDAC | P4[5]のアナログ経路、10bit/32kHz、MCP6001、外部音声L/R |
-| 中 | USB/microSD | USB Full-Speedデバイス、CPLDを通じたSPIの5V→3.3V伝達 |
+| 中 | USB/microSD | USB Full-Speedデバイス、74LVC245A #5によるSPIの5V→3.3V伝達 |
 | 中 | SDK/ABI | PVSnesLib HiROM最小起動、ARMネイティブABI、4形式対応のローダ・ビルド |
 | 中 | 製造原価 | Rev0.8のBOM、1/100枚価格とPCB/PCBAの最終見積り |
 
 ## 2. フェーズ1：CPLD・PSoCの論理設計
 
 - [x] 採用部品と3.3V/5Vバス構成を定義する。
-- [x] CPLDの50汎用I/Oと専用入力4本の信号役割を定義する。
+- [x] AG256の入力31＋出力23=54 I/Oと、LVC245A 38/40レーンの信号役割を定義する。
 - [x] PSoC 100ピンのポート割り当て方針を作成する。
 - [x] ROM4形式、SRAM2形式、SPECIAL_SEL、BOOT_MODEとバス所有権の論理契約を定義する。
-- [ ] CPLDの100-TQFP物理ピン番号を割り当て、LatticeフィッタでI/Oバンク・OE/GOE・JTAG・専用入力条件を確認する。
+- [ ] AG256 LQFP-100物理ピン番号を割り当て、SupraでI/Oバンク・出力OE・JTAG・配置条件を確認する。
 - [ ] CPLDのVerilogを作成し、ROM/SRAM/SPECIAL_SELの相互排他と上位アドレス変換をHDLシミュレーションする。
-- [ ] LC4064Vの64マクロセルに全論理を収容し、最大経路遅延をSTAする。
-- [ ] PSoC CreatorでP0/P5、P3、P4[5] DVDAC、P4[6:7]、P12、P15の配置・ドライブモード・USB・SWD制約を確認する。
+- [ ] AG256の256 LUTに全論理を収容し、最大経路遅延をSupraでSTAする。
+- [ ] PSoC CreatorでP0/P5、P3 CFG0(ARM_MEM_ENABLE)、P4[5] DVDAC、P4[6:7]、P12、P15[3] BOOT_MODE、USB・SWD制約を確認する。
 - [ ] UDBのメールボックス、32アドレス、双方向FIFO、バスFSM、6バイトブート応答をRev0.8に適合させる。
 - [ ] PSoC UDBの実合成後PLD/データパス/DMA資源を算定する。
 
 ## 3. フェーズ2：電気回路とタイミング
 
-- [ ] CPLDアドレス・デコード出力と16T245の配線および3.3V/5V各電源を回路図へ配置する。
+- [ ] AG256アドレス・デコード出力、8T245×1、LVC245A×5の配線および3.3V/5V各電源を回路図へ配置する。
 - [ ] NOR /CE/OE/WE、SRAM CE1/CE2/OE/WE、MEM A0–A22、D0–D7をピン単位で接続する。
-- [ ] CPLD MEM_BUS_OEと16T245両グループ/OEを独立制御し、各出力をHigh-Zにできることを検証する。
-- [ ] MEM制御信号とCPLD/16T245出力許可の起動プル抵抗と切替手順を検証する。
-- [ ] 16T245の5V側VIHとSFC実機VOH、CPLDの5V許容入力、3.3V→PSoC 5VドメインのLVTTL入力条件を検証する。
-- [ ] CPLD論理の最悪/CE・/OE出力遅延、NOR70ns・SRAM45ns、16T245伝搬とOEを重ね、SlowROM 200ns/FastROM 120nsを評価する。
+- [ ] AG256のMEMアドレス15本、LVC245A #1 /OE、8T245 /OEを独立制御し、MEM制御4出力はAG256だけが駆動することを検証する。
+- [ ] MEM制御信号とAG256/8T245/LVC245A出力許可の起動プル抵抗と切替手順を検証する。AG256のSFC/隔離/ARM状態はCFG0とMEM_BUS_OEの組合せで判定する。
+- [ ] 8T245の5V側VIHとSFC実機VOH、LVC245Aの5V入力許容、AG256 3.3V I/O、3.3V→PSoC 5VドメインのLVTTL入力条件を検証する。
+- [ ] AG256論理の最悪/CE・/OE出力遅延、入力LVC245A、NOR70ns・SRAM45ns、8T245伝搬とOEを重ね、SlowROM 200ns/FastROM 120nsを評価する。
 - [ ] SFC /RESET再アサート、CIC、電源遮断時SRAM CE2、USB逆給電防止を検証する。
-- [ ] PSoCのmicroSD SPI→CPLDレベル変換、USBデバイス、VDAC/DVDAC経路を検証する。
+- [ ] PSoCのmicroSD SPI→LVC245A #5レベル変換、USBデバイス、VDAC/DVDAC経路を検証する。
 
 ## 4. フェーズ3：実機試作
 
-- [ ] 4層・1.2mm FR-4、ENIG端子、手はんだ可能なTQFP/SSOPの回路図とPCBを完成させる。
-- [ ] LC4064VのJTAG、PSoCのSWD、PICのICSPを試作・検査用に引き出す。
+- [ ] 4層・1.2mm FR-4、ENIG端子、手はんだ可能なTQFP/LQFP/SSOP/TSSOPの回路図とPCBを完成させる。
+- [ ] AG256SL100のJTAG、PSoCのSWD、PICのICSPを試作・検査用に引き出す。
 - [ ] NOR/SRAMの通常読出し・書込みとSFC/ARM所有権変更を測定する。
 - [ ] HiROMとLoROMで上位アドレスを切り替え、ExHiROMとExLoROMの4MiB境界を検証する。
 - [ ] $5000通信の特殊領域デコード、ARM MEM所有中のFIFO継続、6バイトブート応答を確認する。

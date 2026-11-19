@@ -78,7 +78,7 @@ MEM制御ネットはAG256専用出力のためPSoC側との出力競合は発�
 | P12 | SD SCK、MOSI、/CS、USB VBUS、AG256入力MEM /WE、SD MISO、AG256入力MEM /CE_ROM・/CE_RAM |
 | P15 | SFC /ROMSEL、/RESET、/IRQ、**BOOT_MODE（P15[3]）**、MEM A22、AG256入力MEM /OE、USB D+、D− |
 
-P15[3]の旧アドレス変換/OE用途は廃止し、BOOT_MODE専用出力に変更する。アドレス変換/OEはAG256が直接制御する。VDDIO0/3=5V、VDDIO1/2=3.3V、VDDA/VDDD=5Vとする。P0の8bitはSFC 5Vに直接接続し、P5の8bitは外部3.3V MEMデータとする。
+P15[3]の旧アドレス変換/OE用途は廃止し、BOOT_MODE専用出力に変更する。P3[0]のCFG0はARM_MEM_ENABLEとし、P4[7] MEM_BUS_OEとの2信号でSFC/隔離/ARM所有の3状態を制御する。アドレス変換/OEはAG256が直接制御する。VDDIO0/3=5V、VDDIO1/2=3.3V、VDDA/VDDD=5Vとする。P0の8bitはSFC 5Vに直接接続し、P5の8bitは外部3.3V MEMデータとする。
 
 PSoC I/Oは**72/72本**、AG256のI/O論理予算は**54/80本（入力31・出力23）**、LVC245Aのデータレーンは38/40本である。AG256のJTAG専用4本はI/O予算に含めない。物理ピン指定と専用機能ルーティングはPSoC Creator/AGM Supraで検証する。[pinout.csv](pinout.csv)をPSoC100ピンの正本とする。
 

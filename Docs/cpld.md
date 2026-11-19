@@ -49,7 +49,7 @@ ROMのHiROM/LoROM/Ex形式に対応するA15–A22の変換と、HiROM SRAM 8KiB
 
 **NOR /CE、SRAM /CE、共通/OE・/WEはAG256だけがメモリ側を駆動する。** 従来のようにPSoCとCPLDの出力を同一制御ネットに直結しない。
 
-PSoCのMEM_/CE_ROM=P12[6]、MEM_/CE_RAM=P12[7]、MEM_/OE=P15[5]、MEM_/WE=P12[4]は、3.3V側からAG256の**入力**へ直結する。AG256は所有権に応じてSFC側デコード/ストローブまたはPSoC側4入力を選択する。隔離中と初期化前はROM/SRAM非選択、/OE=/WE非アクティブに固定する。AG256の4出力には独立した3.3Vプルアップを設け、起動中・CPLD未構成中・JTAG書込み時にも非選択を保証する。
+PSoCのMEM_/CE_ROM=P12[6]、MEM_/CE_RAM=P12[7]、MEM_/OE=P15[5]、MEM_/WE=P12[4]は、3.3V側からAG256の**入力**へ直結する。AG256はCFG0 ARM_MEM_ENABLEとP4[7] MEM_BUS_OEの組合せによりSFC所有・隔離・ARM所有を区別し、SFC側デコード/ストローブまたはPSoC側4入力を選択する。不正な両有効状態ではメモリを非選択に固定する。隔離中と初期化前はROM/SRAM非選択、/OE=/WE非アクティブに固定する。AG256の4出力には独立した3.3Vプルアップを設け、起動中・CPLD未構成中・JTAG書込み時にも非選択を保証する。
 
 SFC→ARM切替はWRAM実行、外部ストローブ停止、AG256アドレスOE無効化、LVC245A #1無効化、8T245無効化、ガード時間、PSoC MEM GPIO出力有効化の順序とする。返却時は逆順で、AG256はメモリ制御線を常時安全状態に駆動する。制御出力をHigh-Zにする方式は採用しない。
 
@@ -72,7 +72,7 @@ AG256はSFCのA0–A4、A12–A23、/ROMSEL・/RD・/WR、およびPSoCのCFG[3:
 - BOOT_MODE: PSoC P15[3]を専用**BOOT_MODE出力**へ変更し、LVC245A #5からAG256へ入力する。BOOT_MODE中の$00:8xxx/$00:Fxxxをブート候補として選択する。実データ応答はPSoCが$00:8000–8003/$00:FFFC–FFFDの6バイトだけを返す。
 - ブート候補および$5000ではNOR/SRAMの/CEを無効化し、8T245をHigh-Zとする。PSoC SFC P0[7:0]が直接応答する。
 - ARMがMEMを所有していてもSPECIAL_SELは有効とし、$5000通信を継続する。BOOT_MODE中でも$2F:6000–$2F:7FFFのSRAM BIOS窓は有効にする。
-- CFG0–CFG3とMODE_HILOの**機能コード表**はAG256 RTL作成時に一意に定義する。BOOT_MODEはCFGから独立した専用線とする。
+- CFG0はARM_MEM_ENABLEに割り当て、P4[7] MEM_BUS_OEとの組合せでSFC/隔離/ARM状態を判定する（[bus-udb.md](bus-udb.md)参照）。CFG1–CFG3とMODE_HILOのROM/拡張設定はAG256 RTL作成時に一意に定義する。BOOT_MODEはCFGから独立した専用線とする。
 
 ## 6. AG256SL100 論理I/O予算
 
