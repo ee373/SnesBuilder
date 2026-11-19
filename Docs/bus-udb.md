@@ -22,16 +22,16 @@ AG256からNOR/SRAMへの4つのメモリ制御出力は常時接続し、**High
 
 ## 2. 所有権制御入力と安全な状態
 
-PSoC P4[7]からAG256へ渡すMEM_BUS_OEはSFC側MEMアドレス有効化に使用する。PSoC CFG0をARM_MEM_ENABLEとして予約する設計契約とし、組合せでSFC・隔離・ARMの3状態を区別する。いずれも5V側PSoC GPIOから74LVC245Aを通じて3.3Vへ変換する。
+PSoC P4[6]からAG256へ渡すMEM_BUS_OEはSFC側MEMアドレス有効化に使用する。PSoC P4[0]をARM_MEM_ENABLEとして予約する設計契約とし、組合せでSFC・隔離・ARMの3状態を区別する。いずれも5V側PSoC GPIOから74LVC245Aを通じて3.3Vへ変換する。
 
-| CFG0 ARM_MEM_ENABLE | MEM_BUS_OE | AG256メモリ側動作 |
+| ARM_MEM_ENABLE | MEM_BUS_OE | AG256メモリ側動作 |
 |---:|---:|---|
 | 0 | 0 | 隔離（全/CE・/OE・/WE非選択、アドレスHigh-Z） |
 | 0 | 1 | SFC所有（AG256アドレス＋LVC245A #1有効、SFCの制御を選択） |
 | 1 | 0 | ARM所有（AG256アドレス＋LVC245A #1無効、PSoCの制御入力を選択） |
 | 1 | 1 | 不正組合せとして隔離（フェイルセーフ） |
 
-CFG1–CFG3、MODE_HILO、BOOT_MODEはROM設定と通信拡張を担当し、残りの具体的なCFG割当てはRTLで確定する。BOOT_MODEはP15[3]からの独立信号である。AG256の回路出力が有効になる前はプルアップにより4つのメモリ制御を非選択にする。CFG0・MEM_BUS_OEの初期値が隔離を選ぶよう抵抗を設ける。
+ROM_SIZE[0:2]=P4[1:3]は128KiB～8MiBの7段階容量、MODE_HILO=P4[4]はROM形式、EXTENSION_ENABLE=P4[7]は$5000通信の許可、BOOT_MODE=P15[3]は起動固定応答を担当する。BOOT_MODEはP15[3]からの独立信号である。AG256の回路出力が有効になる前はプルアップにより4つのメモリ制御を非選択にする。CFG0・MEM_BUS_OEの初期値が隔離を選ぶよう抵抗を設ける。
 
 ## 3. 所有権ハンドシェイク
 
@@ -41,7 +41,7 @@ FSMはISO→QUIET→CONFIG→GUARD→OWNERを設計契約とする。
 2. PSoCは新規MEMアクセスを停止し、進行中のストローブ完了を待つ。SFC所有ならMEM_BUS_OE=0に変更して隔離状態を確立する。
 3. AG256アドレス15本、LVC245A #1、8T245を無効化し、メモリ制御4本を非選択にして必要な時間待つ。
 4. PSoCはMEM GPIOのPRTx_BYP・ドライブモードを設定し、未準備のメモリストローブを出さないことを確認する。
-5. CFG0=1、MEM_BUS_OE=0としてARMへ所有権を与える。SFCへのSTATUS/REPLYに反映する。SFCへ返却する場合はCFG0=0で隔離してPSoC MEM GPIOをHigh-Zに戻してから、MEM_BUS_OE=1とする。
+5. ARM_MEM_ENABLE=1、MEM_BUS_OE=0としてARMへ所有権を与える。SFCへのSTATUS/REPLYに反映する。SFCへ返却する場合はARM_MEM_ENABLE=0で隔離してPSoC MEM GPIOをHigh-Zに戻してから、MEM_BUS_OE=1とする。
 
 PSoCのMEM制御GPIOはAG256の入力なので出力High-Zの切替は不要だが、ARM所有へ切り替える前に**すべて非選択の値を確定**する。MEMアドレス・データの電気的競合を起こさないガード時間は実機で確定する。SFCのROM/SRAMアクセス中にバスを奪う方式は採用しない。
 
@@ -61,27 +61,30 @@ SFCのSRAM書込みではDIR=Low（8T245 B→A）とデータセットアップ�
 
 ## 5. 特殊領域と通信
 
-AG256はSFC A0–A4、A12–A23、/ROMSEL・/RD・/WRを5V→3.3V変換後に受ける。システムバンク$00–$3F/$80–$BF:$5000–$5FFFとBOOT_MODE中の$00:8xxx/$00:Fxxxへのアクセス候補をSPECIAL_SELでPSoC P3[5]へ通知する。PSoCは直接入力したSFC A15（P4[6]）、A0–A4（P4[0:4]）を併用する。
+AG256はSFC A0–A3とA12–A23、/ROMSEL・/RD・/WRをLVC245A #2～#4経由で受ける。SFC A4–A11はLVC245A #1からMEM A4–A11へ直結し、AG256へは入力しない。AG256のSPECIAL_SELはPSoC P3[4]へ接続する。PSoCはSFC A0–A3=P3[0:3]、/RD・/WR=P3[6:7]、/ROMSEL=P15[0]で16アドレスの通信またはブート固定応答を選択する。
 
-BOOT_MODEはP15[3]から74LVC245A #5経由でAG256へ与える。ブート応答は$00:FFFC/$00:FFFDと$00:8000–8003の6バイトで、データ出力はPSoC UDBがP0から行う。特殊領域ではAG256がNOR/SRAMを非選択、8T245をHigh-Zにして出力競合を防ぐ。BIOS用$2F:6000–$2F:7FFF SRAM窓はBOOT_MODE中も維持する。
+$5000–$5FFFの通信レジスタはEXTENSION_ENABLEが有効な場合に16アドレス周期でミラーし、初期実装は12レジスタ、残り4アドレスは予約とする。
 
-SPECIAL_SELはメモリ所有権と独立して有効とするため、ARMがNOR/SRAMを使用中でも$5000コマンド/FIFOを継続できる。
+BOOT_MODEはP15[3]→LVC245A #5→AG256へ通知する。$00:FFFC–FFFDと$00:8000–8003の6バイトはPSoC UDBがP0から直接応答し、NOR/SRAMおよび8T245を同時に無効化する。SRAM BIOS窓$2F:6000–$2F:7FFFはBOOT_MODE中も維持する。PSoCが対象6アドレス以外でP0を出力しないようにする。
+
+SPECIAL_SELはMEM所有権と独立して有効化するので、ARMがNOR/SRAMを利用していても$5000通信を継続できる。
 
 ## 6. PSoC UDBの担当
 
-| 機能 | 実装 |
+| 機能 | 実装場所 |
 |---|---|
-| ROM4形式/SRAM2形式アドレス変換、SPECIAL_SEL、AG256 MEM制御 | AG256 |
-| 8T245 DIR/OE・LVC245A #1 /OE | AG256 |
-| 所有権FSM、GPIO設定ACK | UDB＋ARM |
-| $5000の32アドレス（実装12、予約20） | UDB |
-| ブート6バイトの固定応答 | UDB |
-| 双方向各4byte FIFO | UDBデータパス（F0/F1等）＋DMA |
-| SFC /IRQ、メールボックス、CDC | UDB＋ARM |
-| microSD SPI | PSoC UDBまたはソフトウェア。レベル変換はLVC245A #5 |
-| USB・追加音声 | USB専用HW、DAC、DMA、ARM |
+| HiROM/LoROM/Ex、128KiB–8MiB ROM容量マスク、SRAMデコード | AG256 |
+| MEMアドレス23bit、データ8bit、MEM4制御GPIO | PSoC ARM＋GPIO。データ/アドレスのUDBラッチは不要 |
+| 8T245 DIR/OE、#1 /OE、SPECIAL_SEL | AG256 |
+| ブート6バイト固定応答、8bit読出しMUX、P0出力許可 | PSoC UDB |
+| 16アドレス（実装12）の通信レジスタ、メールボックス | PSoC UDB＋ARM |
+| 4バイトFIFO×2、2データパス、DMA要求、2FF CDC、IRQ | PSoC UDB＋DMA＋ARM |
+| 所有権FSM・GPIO設定ACK | PSoC UDB＋ARM |
+| microSD SPI Master | UDBを第一候補、DMA併用。必要に応じソフトウェアSPI |
+| USB Full-Speed、DVDAC | PSoC専用HW＋DMA。UDBは原則不要 |
+| SFC /RESET | PSoC P15[1]直接接続、オープンドレインLow/High-Z |
 
-FIFOのsys_clk領域とSFC非同期読書きをラッチ・トグル/ACK・2FF同期で接続し、ROMの物理バス所有権からは独立させる。Rev0.8のUDB/PLD数はCreatorによる合成結果で確定する。
+UDBの事前配分目安はブート2–4、通信3–5、双方向FIFO2–4、同期・FSM3–5、SPI1–3で計11–21個とする。これらは未合成の設計予算であり、24 UDBへの配置可能性・全PLD・内部ルーティングはCreatorで確認する。SFC読出しは事前準備したデータへの組み合わせ応答とし、FIFO更新イベントやARM通知は内部sys_clk領域で処理する。
 
 ## 7. タイミングと検証
 
