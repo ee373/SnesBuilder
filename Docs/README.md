@@ -28,7 +28,7 @@ HiROM、ExHiROM、LoROM、ExLoROMを対象とし、128KiB～8MiBの2冪7段階�
 | [bus-udb.md](bus-udb.md) | 排他バス所有権、CPLD High-Z、UDB通信、STA条件 |
 | [communication.md](communication.md) | $5000通信、FIFO、DMA、SFC/ARM協調、音源・USB実行時通信 |
 | [firmware.md](firmware.md) | BIOS、ゲームローダ、ARMプログラム、USB・microSD、セーブ |
-| [rom-compatibility.md](rom-compatibility.md) | 既存ROMのマップと事前ミラー展開 |
+| [rom-compatibility.md](rom-compatibility.md) | 既存ROMのマップ、2冪7段階のハードウェアミラー、非2冪容量のNOR事前展開 |
 | [power-cic.md](power-cic.md) | 5V/3.3V、SRAM電池保持、リセット/CIC、電源安全性 |
 | [audio.md](audio.md) | PSoC DVDAC、MCP6001、外部音声L/R |
 | [production.md](production.md) | 現行BOM、1枚・100枚製作原価、試作・量産費 |
