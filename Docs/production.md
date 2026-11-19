@@ -77,4 +77,8 @@ AG256単価は海外販売の参考価格約US$2.13（少量）、約US$1.25（�
 
 ## 6. 製造・調達の確定事項
 
-AG256SL100 LQFP-100のピン割り当て、Supraでの256 LUT/54 I/Oフィッティングと120ns STA、各74LVC245AのDIR/OE初期値、8T245の5V側VIH、メモリ制御のAG256一元化を確認したあと回路図・Gerberを固定する。PSoC SWD、AG256 JTAG、PIC ICSPを試験パッドへ引き出す。AGM開発ツールの取得・ライセンスとJTAG書込み器の手配も試作開始条件とする。
+[cpld-pinout.csv](cpld-pinout.csv)で物理ピン候補を割り当てたAG256SL100のSupra 256 LUT/54 I/Oフィッティングと120ns STA、各74LVC245AのDIR/OE初期値、8T245の5V側VIH、メモリ制御のAG256一元化を確認したあと回路図・Gerberを固定する。PSoC SWD、AG256 JTAG、PIC ICSPを試験パッドへ引き出す。AGM開発ツールの取得・ライセンスとJTAG書込み器の手配も試作開始条件とする。
+
+## 7. 2026-11-19の設計更新によるBOM影響
+
+PSoCピンを71/72本使用、AG256を54/80本使用とし、レベル変換ICは従来の6個（SN74LVC8T245×1、74LVC245A×5）を維持する。#1をSFC A4–A11→MEMへ変更し、#2～#5の38/40レーンを再配分する。128KiB～8MiBの7段階容量マスクはCPLD内部論理だけで追加し、部品点数は増やさない。NORはBYTE#=LowとしてMEM A0をDQ15/A-1へ配線する。USB VBUS検出、microSD MISO、SFC /RESET直結、AG256/PSoCの物理ピン指定によるPCB配線と受動部品数は詳細回路図で再計算する。製造原価の過去見積もりは部品表の参考として維持する。
