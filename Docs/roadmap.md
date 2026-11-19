@@ -1,123 +1,13 @@
-# 詳細設計・検証・開発工程
+# Rev.0.9 実装・検証計画
 
-Rev0.8 / 2026-11-19。採用構成はPSoC CY8C5287AXI-LP095、CPLD AG256SL100、SN74LVC8T245DBR×1、74LVC245APW,118×5、8MiB NOR、128KiB SRAMである。高速ROMアクセスはCPLDに集約し、128KiB～8MiBの2冪7段階はAG256でハードウェアミラーし、非2冪容量だけNORへソフトウェア事前展開する。
+- [ ] AG32の固定機能と75/78使用・予約I/OのSupra Nativeピンフィッティング。
+- [ ] Prepare LOGIC生成トップのAHB・IRQ・DMA/クロック・リセット接続。
+- [ ] FPGAのROM4形式、7段階容量マスク、SRAMデコード、MEMアドレスMUX。
+- [ ] U1/U6の/OE排他、MEM D0–D7の双方向OE、U5 DIR/OEを合成・実機確認。
+- [ ] CPU→FPGA AHBメモリコントローラ、HREADYOUT、NOR/SRAM8bit、SFC優先通信。
+- [ ] $5000の64アドレス窓、FIFO、IRQ、ブート固定6バイト、SRAM BIOS。
+- [ ] SlowROM200ns、FastROM120nsのSTA・実機測定と電源/CIC/リセット検証。
+- [ ] PVSnesLib HiROM/SlowROM→LoROM/Ex形式、SDK、エミュレータ。
+- [ ] 将棋AI、3Dデモ、多重PCM、USB配信デモの実証。
 
-## 1. 未確定事項と優先順位
-
-| 優先 | 項目 | 判定基準 |
-|---|---|---|
-| 最優先 | CPLDの論理収容 | 256 LUT、54/80ユーザーI/O、全OE条件でAGM Supraフィッティングが通る |
-| 最優先 | FastROMタイミング | SFCアドレス/ROMSEL/RD→LVC245A→AG256→NOR70ns→8T245→SFCデータが120ns以内 |
-| 最優先 | バス競合 | SFC/ARM切替中にMEMアドレス/データが競合せず、メモリ制御4出力はAG256だけが駆動 |
-| 最優先 | CPLD pinout | 100-LQFPの3.3V I/Oバンク、JTAG、54本の論理信号割当て、LUT・配線条件 |
-| 最優先 | PSoC pinout | P0 D、P5 MEM D、P3 CFG、P4 A15/MEM_BUS_OE/DVDACのCreator配置 |
-| 高 | 8T245・LVC245Aの電気仕様 | 8T245の5V側入力HIGH条件、LVC245Aの5V許容入力、DIR/OEの3.3V基準、電源立上りの安全性 |
-| 高 | ROM4形式 | HiROM/ExHiROM/LoROM/ExLoROMの全バンクとSRAMデコード一致 |
-| 高 | ゲームローダ | 元ROMのミラー規則を保持したNORイメージ展開と書込済みキャッシュ |
-| 高 | ブート6バイト | SPECIAL_SEL→PSoC P0応答、NOR/8T245排他、$2F6000のSRAM BIOS |
-| 高 | ARM所有中の通信 | ARMがMEMを使用する間も$5000 FIFO/レジスタが継続動作 |
-| 高 | SRAM保持 | CE2、低漏れ電流、CR2032、電源喪失時のデータ保護 |
-| 高 | リセット/CIC | /RESETオープンドレイン制御、電源投入直後の未初期化バス、安全な解除 |
-| 中 | DVDAC | P4[5]のアナログ経路、10bit/32kHz、MCP6001、外部音声L/R |
-| 中 | USB/microSD | USB Full-Speedデバイス、74LVC245A #5によるSPIの5V→3.3V伝達 |
-| 中 | SDK/ABI | PVSnesLib HiROM最小起動、ARMネイティブABI、4形式対応のローダ・ビルド |
-| 中 | 製造原価 | Rev0.8のBOM、1/100枚価格とPCB/PCBAの最終見積り |
-
-## 2. フェーズ1：CPLD・PSoCの論理設計
-
-- [x] 採用部品と3.3V/5Vバス構成を定義する。
-- [x] AG256の入力31＋出力23=54 I/Oと、LVC245A 38/40レーンの信号役割を再配置した（SFC A4–A11→#1→MEM、A12はAG256）。
-- [x] PSoC TQFP100の71/72使用ピンとAG256の54物理ピン候補をCSVに定義した。SFC /RESETはPSoC P15[1]へ直結する。
-- [x] ROM4形式、SRAM2形式、7段階容量マスク、SPECIAL_SEL、BOOT_MODEとバス所有権の論理契約を定義する。
-- [ ] AG256 LQFP-100物理ピン候補54本を[cpld-pinout.csv](cpld-pinout.csv)で固定し、[verify_rev08_interfaces.py](verify_rev08_interfaces.py)でPSoC/AG256ピン重複と7段階ミラーの静的検査を行った後、SupraでI/Oバンク・出力OE・JTAG・配置条件を確認する。
-- [ ] CPLDのVerilogを作成し、ROM/SRAM/SPECIAL_SELの相互排他と上位アドレス変換をHDLシミュレーションする。
-- [ ] AG256の256 LUTに全論理を収容し、最大経路遅延をSupraでSTAする。
-- [ ] PSoC CreatorでP0/P5、P3のSFC A0–A3/SPECIAL_SEL/読書き、P4[0:4]/P4[6:7]設定、P4[5] DVDAC、P12 SIO（MISO/VBUS）、P15[1]直接/RESET・P15[3] BOOT_MODE、USB/SWDを確認する。
-- [ ] UDBのメールボックス、16アドレス（実装12）、双方向4バイトFIFO、所有権FSM、6バイトブート応答、SPIをRev0.8に適合させる。
-- [ ] PSoC UDBの実合成後PLD/データパス/DMA資源を算定する。
-
-## 3. フェーズ2：電気回路とタイミング
-
-- [ ] AG256アドレス・デコード出力、8T245×1、LVC245A×5の配線および3.3V/5V各電源を回路図へ配置する。
-- [ ] NOR BYTE#=Low・DQ15/A-1←MEM A0・NOR A0–A21←MEM A1–A22、NOR /CE/OE/WE、SRAM CE1/CE2/OE/WE、MEM A0–A22、D0–D7をピン単位で接続する。
-- [ ] AG256のMEMアドレス15本、LVC245A #1（A4–A11）/OE、8T245 /OEを独立制御し、MEM制御4出力はAG256だけが駆動することを検証する。
-- [ ] MEM制御信号とAG256/8T245/LVC245A出力許可の起動プル抵抗と切替手順を検証する。AG256のSFC/隔離/ARM状態はP4[0] ARM_MEM_ENABLEとP4[6] MEM_BUS_OEの組合せで判定する。
-- [ ] 8T245の5V側VIHとSFC実機VOH、LVC245Aの5V入力許容、AG256 3.3V I/O、3.3V→PSoC 5VドメインのLVTTL入力条件を検証する。
-- [ ] AG256論理（10ns目標、15ns暫定上限）の最悪/CE・/OE出力遅延、入力LVC245A、NOR70ns・SRAM45ns、8T245伝搬とOEを重ね、SlowROM 200ns/FastROM 120nsを評価する。
-- [ ] SFC /RESET再アサート、CIC、電源遮断時SRAM CE2、USB逆給電防止を検証する。
-- [ ] PSoCのmicroSD SPI→LVC245A #5レベル変換、USBデバイス、VDAC/DVDAC経路を検証する。
-
-## 4. フェーズ3：実機試作
-
-- [ ] 4層・1.2mm FR-4、ENIG端子、手はんだ可能なTQFP/LQFP/SSOP/TSSOPの回路図とPCBを完成させる。
-- [ ] AG256SL100のJTAG、PSoCのSWD、PICのICSPを試作・検査用に引き出す。
-- [ ] NOR/SRAMの通常読出し・書込みとSFC/ARM所有権変更を測定する。
-- [ ] HiROMとLoROMで上位アドレスを切り替え、ExHiROMとExLoROMの4MiB境界を検証する。
-- [ ] $5000通信の特殊領域デコード、ARM MEM所有中のFIFO継続、6バイトブート応答を確認する。
-- [ ] 70ns NORのFastROM/SlowROM実効アクセス、45ns SRAMの読み書きをロジックアナライザ/オシロスコープで測定する。
-- [ ] SRAMバックアップと電源再投入時の保存、microSD・USB・DVDACを検証する。
-
-## 5. フェーズ4：共通ファームウェア・ローダ
-
-- [ ] ROM形式と容量、ヘッダ、SRAMマップ、ミラーを識別する。
-- [ ] 2冪容量のAG256マスク設定、非2冪NORイメージ事前展開、差分キャッシュ、消去/書込みバッファを実装する。
-- [ ] ARM所有権FSM、WRAM待機、$5000ハンドシェイクを実装する。
-- [ ] PSoC内蔵Flash→SRAM末尾8KiBのBIOS展開、BOOT_MODEの6バイト固定応答を実装する。
-- [ ] Start＋SelectのBIOSメニュー、ゲーム設定、ROMエントリポイント移行を実装する。
-- [ ] USB Full-Speed、microSD FATファイルアクセス、セーブ同期、ARMゲームコードロードを実装する。
-- [ ] ARM API・ABI、USBプロトコル、SFC通信/FIFO・IRQ/DMAの単体サンプルを作成する。
-
-## 6. フェーズ5：SDK、互換性と頒布
-
-- [ ] PVSnesLib HiROM/SlowROMを最小構成で実機起動し、ROMバンク・ROM_SIZEの7段階・SRAM・$5000通信を確認する。
-- [ ] LoROM、ExLoROM、ExHiROMとFastROM指定のサンプル・ヘッダ・ベクタを検証する。
-- [ ] 65C816・ARM統合ビルド、マニフェストとセーブ領域、ローダを公開する。
-- [ ] エミュレータへROM4形式、ARM、SRAM、$5000通信、FIFO、BIOS APIを移植する。
-- [ ] USBホストPC/Raspberry Piとの実行時Bulk転送、画像・音源、コントローラ往復、VRAM DMAを測定する。
-- [ ] 検査項目、BOM、PCB/PCBA価格、ケース・梱包条件を確定する。
-- [ ] 開発用基板およびゲーム用カートリッジの頒布方法を検討する。
-
-## 7. 最初の実機統合試験
-
-PVSnesLibのHiROM/SlowROM最小サンプルから開始する。NORの先頭に適切なHiROM物理イメージを配置し、CPLDをHiROM/SFC所有状態へ設定する。PSoCが直接接続した/RESETをLow保持してSRAM BIOSを展開し、$00:FFFC/$00:FFFDおよび$00:8000–8003の固定値から$2F:6000へ実行を移す。SRAM BIOSが$5000通信を検証した後、WRAMコードから通常ROMへ移行する。これを通過してからFastROMとLoROM/Ex形式の検証へ進める。
-
-## 8. USBによる実行時連携
-
-USBはPSoCがFull-Speedデバイス、PC/Raspberry Piがホストとなる。ARM/DMAはUSB受信データを内部SRAMでバッファし、SFCへは$5000 FIFOや共有SRAMを介して転送する。SFC側はVRAM/CGRAM/OAMおよびSPC700を操作し、コントローラ入力やデバッグ情報をホストへ返す。ゲーム実行中にUSB経由でリソースやデバッグデータを送受信できることをSDKの拡張機能とする。実行時通信がなくてもネイティブゲームを起動できる構成は維持する。
-
-## デモソフトウェアの方針（2026-11-18）
-
-SFCBuilderの最初期からの実機検証を、一般向けの視覚・聴覚的なデモと、技術者向けの機能実証の両面で示す。以下の4系統を**デモ開発候補／性能評価目標**として扱い、実装や達成性能を確定仕様とはしない。新規ハードウェアは要求せず、Rev.0.8のARM、CPLD、UDB・FIFO、外部共有SRAM、DVDAC、USB Full-SpeedデバイスとSFC本体のPPU・APUを使用する。
-
-| デモ | 実証目的 | ソフトウェア上の主な構成 |
-|---|---|---|
-| 激ツヨ森田将棋 | ARMのAI演算能力、65C816との協調・ROM移植 | 既存『森田将棋2』の表示・操作・対局進行を活用し、思考ルーチンと通信部分をSFCBuilder用に置換してExHiROMへ移植する構想。実装詳細は[将棋AI実証案](prototypes/shogi-ai/README.md)を参照 |
-| 3Dポリゴン描画 | ARMの固定小数点3D演算とSFCのPPU・DMAの協調 | ARMで座標変換・クリッピング・フラットシェーディング・タイル変換を行い、SFC側でVRAM更新・表示する |
-| 多重PCM追加音源 | ARMソフトウェアミキサー、DVDAC、SFC標準8音声との同時動作 | ARM側で複数PCM音声をミックスして10bit/32kHzを初期目標とするモノラル追加音源から出力。標準S-DSPの8音声とは別系統 |
-| USBリアルタイム配信 | PCホスト―PSoC―SFC間の双方向実行時通信、映像・音声同期 | PCでSFC向け画像データ・音声を生成しUSB BulkでPSoCへ転送。SFC側がVRAM更新、DACまたはAPUが音声を再生し、コントローラー入力をPCへ返信する |
-
-### 3Dデモの初期評価条件
-
-- 初期実証は64×64、16色（4bpp）、30fps程度の回転立体から着手し、ポリゴン描画経路と同期を計測する。次に**160×120、16色、20fps**を拡張目標とする。96×80、16色、30fpsも中間の比較条件とする。いずれも予定性能ではなくベンチマーク目標である。
-- 160×120、4bppで全画面を書き換える場合の画像データは9,600バイト/フレーム、20fpsなら192,000バイト/秒となる。NTSC約60Hzで3回のVBlankに分けて転送する場合は平均3,200バイト/VBlankとなるが、表示途中の画像を露出させないためのVRAM二重バッファ、タイル配置、表示切替を設計する。
-- 80MHzのARMでは20fps時の理論CPU予算は4,000,000サイクル/画像。レンダリングだけでなく、画像のタイル化、ARM内部SRAM容量、外部SRAMへの書込み、バス所有権切替、SFC側DMAの実効時間が制約となる。まず50～150程度のポリゴンを測定範囲として評価し、安定フレームレート・転送時間・実際の可視ポリゴン数を記録する。
-- テクスチャマッピングやZバッファ、初代PlayStation相当の性能を初期目標には含めない。SFCのBG・スプライトと3D描画領域を組み合わせて、表示全体の見栄えを構成する。
-
-### 多重PCM音源デモの初期評価条件
-
-- 既存S-DSPの最大8音声とは別に、ARMでPCMを加算・音量調整する固定小数点ミキサーを試作する。追加音声の16音、24音、32音を段階的に測定し、各音声の音色や和音を増やすことで差を聴覚的に示す。**16～32音は性能目標であり、動作保証値ではない**。
-- DVDACの初期評価条件10bit/32kHzとモノラルのSFC外部音声入力L/R同相信号を維持する。32kHz出力時は80MHz÷32kHz＝2,500サイクル/出力サンプルであり、ミキシング、FIFO・DMA、割込み、ゲーム処理の負荷と併せて実測する。
-- 最初は音源単独デモとして実装し、その後S-DSP標準音声との合成、ノイズ・歪・音量整合、ARM側のその他処理と並行した場合の発音数を測る。
-
-### USBストリーミングデモの初期評価条件
-
-- USBホストはPC/Raspberry Pi、PSoCは**USB Full-Speed（12Mbps）デバイス**という現行仕様を維持する。初期実装ではPC側で映像をSFCのタイル形式へ事前変換し、PSoCは受信・バッファ管理・SFCへの受渡しを行う。USBからPPUへ直接アクセスしない。
-- 映像のみ→映像と音声の同期→コントローラー情報のPCへの返信という順に検証する。160×120、4bpp、20fpsの映像データは192kB/sであり、32kHz・16bitコンテナ・モノラル音声は64kB/s、合計256kB/sを設計評価例とする。USBプロトコルの実効速度とSFC VBlank DMAの実効時間は別個に測定する。
-- 音声はまずPSoCの追加DACを想定し、必要に応じてSPC700/S-DSP経由も検討する。SFCの入力をPCで実行中のアプリケーションへ送信し、その結果をSFCのPPUで表示する双方向デモも候補とする。
-- USBの平均受信速度とSFCの瞬間DMA供給速度の差はPSoC内部バッファで吸収し、外部共有SRAMを使う場合はSFC/ARMの排他的バス所有権を厳守する。音飛び、フレーム欠落、音声同期遅延、再接続、FIFOアンダーランを検証する。
-
-### 実装順序と記録
-
-最初に通常のHiROM/SlowROM起動、$5000通信、SRAM所有権切替、USB・DACの単機能動作を確認する。その後、計算負荷と画面更新負荷を分離できる**将棋AI・音声ミキサー**、続いて**3D描画**、最後に**USB動画・音声の双方向ストリーミング**を実装する。実装順序は依存機能の完成状況に応じて変更できる。
-
-各デモはソース、ビルド手順、通信プロトコル、使用メモリ、フレームレートまたは発音数、CPU負荷、転送帯域、実機での再現手順を成果物として記録する。将棋ソフトの改造デモは元ROMを配布せず、必要に応じて利用者所有の正規ROMへ適用する差分パッチ方式を維持する。
+回路規模・ピン合法性・実機FastROMは未検証。歴史的RTLの検証結果を現行の合格根拠に使用しない。
