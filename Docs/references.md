@@ -58,3 +58,12 @@ AG256の資料にあるLUT/IOE遅延は内部素子の参考値であり、SFC�
 PSoC経由のNOR読出し全体約210ns、アドレス往路約60ns、データ復路約50ns、往路約60nsのうちGPIOの遅延約50nsはプロジェクト内で確認した参考値である。Rev0.8はこれらのPSoC経路をSFCの高速メモリ読出しから除外する。LVC245A＋AG256＋NOR＋8T245の合成後遅延および実機FastROM 120ns適合は未測定である。
 
 BOM単価は2026年11月の販売店調査値であり、[production.md](production.md)の1枚・100枚試算を現在の部品表の基準とする。
+
+## 7. 2026-11-19の再配置・タイミング参照
+
+- [AGM AG256/AG272 LQFP100ピン表・遅延データ](https://datasheet.lcsc.com/lcsc/1810010911_AGM-Microelectronics-AG256SL100_C133745.pdf)：表5-1の100物理端子のI/O・電源・JTAG区分、T_IN最大1.308ns、LUT遅延最大1.111ns、T_DO最大2.140ns等を参照する。これらはフィッティング後のピン間経路ではない。
+- [PSoC 5LP CY8C52LP データシート](https://atta.szlcsc.com/upload/public/pdf/source/20230606/8068F1AC13ED87804EFDB92155833B32.pdf)：100ピンのポート位置、5V/3.3Vドメイン、P12 SIOの5.5V耐入力と差動しきい値0.4×VDDIO、DVDACなど。
+- [Infineon BYTE# FAQ](https://community.infineon.com/t5/Knowledge-Base-Articles/Default-Configuration-for-BYTE-Pin-in-NOR-Flash-Memory/ta-p/251846)：S29GL064SをBYTE#=Lowで使うとDQ15/A-1が最下位アドレス入力になる。
+- [SNESdev Timing](https://snes.nesdev.org/wiki/Timing)：SFCのSlow/Fastアクセスと/ROMSEL等のバス信号到着差の確認に使用する。
+
+FastROMの初期遅延配分は、LVC245A 6.3ns＋NOR 70ns＋8T245 4.4ns＝80.7nsとして120nsとの差39.3nsを求め、基板等に5～10nsを仮置きしてAG256へ29.3～34.3nsを割り当てる。AG256ピン間10ns目標・15ns暫定上限は設計目標であり、/ROMSEL経路、/OE経路、SFCデータセットアップと基板負荷を含めたSTAで確定する。
