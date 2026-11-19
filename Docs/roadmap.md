@@ -1,6 +1,6 @@
 # 詳細設計・検証・開発工程
 
-Rev0.8 / 2026-11-19。採用構成はPSoC CY8C5287AXI-LP095、CPLD AG256SL100、SN74LVC8T245DBR×1、74LVC245APW,118×5、8MiB NOR、128KiB SRAMである。高速ROMアクセスはCPLDに集約し、ROMミラーリングはNORへのソフトウェア事前展開で行う。
+Rev0.8 / 2026-11-19。採用構成はPSoC CY8C5287AXI-LP095、CPLD AG256SL100、SN74LVC8T245DBR×1、74LVC245APW,118×5、8MiB NOR、128KiB SRAMである。高速ROMアクセスはCPLDに集約し、128KiB～8MiBの2冪7段階はAG256でハードウェアミラーし、非2冪容量だけNORへソフトウェア事前展開する。
 
 ## 1. 未確定事項と優先順位
 
@@ -26,24 +26,24 @@ Rev0.8 / 2026-11-19。採用構成はPSoC CY8C5287AXI-LP095、CPLD AG256SL100、
 ## 2. フェーズ1：CPLD・PSoCの論理設計
 
 - [x] 採用部品と3.3V/5Vバス構成を定義する。
-- [x] AG256の入力31＋出力23=54 I/Oと、LVC245A 38/40レーンの信号役割を定義する。
-- [x] PSoC 100ピンのポート割り当て方針を作成する。
-- [x] ROM4形式、SRAM2形式、SPECIAL_SEL、BOOT_MODEとバス所有権の論理契約を定義する。
-- [ ] AG256 LQFP-100物理ピン番号を割り当て、SupraでI/Oバンク・出力OE・JTAG・配置条件を確認する。
+- [x] AG256の入力31＋出力23=54 I/Oと、LVC245A 38/40レーンの信号役割を再配置した（SFC A4–A11→#1→MEM、A12はAG256）。
+- [x] PSoC TQFP100の71/72使用ピンとAG256の54物理ピン候補をCSVに定義した。SFC /RESETはPSoC P15[1]へ直結する。
+- [x] ROM4形式、SRAM2形式、7段階容量マスク、SPECIAL_SEL、BOOT_MODEとバス所有権の論理契約を定義する。
+- [ ] AG256 LQFP-100物理ピン候補54本を[cpld-pinout.csv](cpld-pinout.csv)で固定し、SupraでI/Oバンク・出力OE・JTAG・配置条件を確認する。
 - [ ] CPLDのVerilogを作成し、ROM/SRAM/SPECIAL_SELの相互排他と上位アドレス変換をHDLシミュレーションする。
 - [ ] AG256の256 LUTに全論理を収容し、最大経路遅延をSupraでSTAする。
-- [ ] PSoC CreatorでP0/P5、P3 CFG0(ARM_MEM_ENABLE)、P4[5] DVDAC、P4[6:7]、P12、P15[3] BOOT_MODE、USB・SWD制約を確認する。
-- [ ] UDBのメールボックス、32アドレス、双方向FIFO、バスFSM、6バイトブート応答をRev0.8に適合させる。
+- [ ] PSoC CreatorでP0/P5、P3のSFC A0–A3/SPECIAL_SEL/読書き、P4[0:4]/P4[6:7]設定、P4[5] DVDAC、P12 SIO（MISO/VBUS）、P15[1]直接/RESET・P15[3] BOOT_MODE、USB/SWDを確認する。
+- [ ] UDBのメールボックス、16アドレス（実装12）、双方向4バイトFIFO、所有権FSM、6バイトブート応答、SPIをRev0.8に適合させる。
 - [ ] PSoC UDBの実合成後PLD/データパス/DMA資源を算定する。
 
 ## 3. フェーズ2：電気回路とタイミング
 
 - [ ] AG256アドレス・デコード出力、8T245×1、LVC245A×5の配線および3.3V/5V各電源を回路図へ配置する。
-- [ ] NOR /CE/OE/WE、SRAM CE1/CE2/OE/WE、MEM A0–A22、D0–D7をピン単位で接続する。
-- [ ] AG256のMEMアドレス15本、LVC245A #1 /OE、8T245 /OEを独立制御し、MEM制御4出力はAG256だけが駆動することを検証する。
-- [ ] MEM制御信号とAG256/8T245/LVC245A出力許可の起動プル抵抗と切替手順を検証する。AG256のSFC/隔離/ARM状態はCFG0とMEM_BUS_OEの組合せで判定する。
+- [ ] NOR BYTE#=Low・DQ15/A-1←MEM A0・NOR A0–A21←MEM A1–A22、NOR /CE/OE/WE、SRAM CE1/CE2/OE/WE、MEM A0–A22、D0–D7をピン単位で接続する。
+- [ ] AG256のMEMアドレス15本、LVC245A #1（A4–A11）/OE、8T245 /OEを独立制御し、MEM制御4出力はAG256だけが駆動することを検証する。
+- [ ] MEM制御信号とAG256/8T245/LVC245A出力許可の起動プル抵抗と切替手順を検証する。AG256のSFC/隔離/ARM状態はP4[0] ARM_MEM_ENABLEとP4[6] MEM_BUS_OEの組合せで判定する。
 - [ ] 8T245の5V側VIHとSFC実機VOH、LVC245Aの5V入力許容、AG256 3.3V I/O、3.3V→PSoC 5VドメインのLVTTL入力条件を検証する。
-- [ ] AG256論理の最悪/CE・/OE出力遅延、入力LVC245A、NOR70ns・SRAM45ns、8T245伝搬とOEを重ね、SlowROM 200ns/FastROM 120nsを評価する。
+- [ ] AG256論理（10ns目標、15ns暫定上限）の最悪/CE・/OE出力遅延、入力LVC245A、NOR70ns・SRAM45ns、8T245伝搬とOEを重ね、SlowROM 200ns/FastROM 120nsを評価する。
 - [ ] SFC /RESET再アサート、CIC、電源遮断時SRAM CE2、USB逆給電防止を検証する。
 - [ ] PSoCのmicroSD SPI→LVC245A #5レベル変換、USBデバイス、VDAC/DVDAC経路を検証する。
 
@@ -60,7 +60,7 @@ Rev0.8 / 2026-11-19。採用構成はPSoC CY8C5287AXI-LP095、CPLD AG256SL100、
 ## 5. フェーズ4：共通ファームウェア・ローダ
 
 - [ ] ROM形式と容量、ヘッダ、SRAMマップ、ミラーを識別する。
-- [ ] NORイメージ事前展開、差分キャッシュ、消去/書込みバッファを実装する。
+- [ ] 2冪容量のAG256マスク設定、非2冪NORイメージ事前展開、差分キャッシュ、消去/書込みバッファを実装する。
 - [ ] ARM所有権FSM、WRAM待機、$5000ハンドシェイクを実装する。
 - [ ] PSoC内蔵Flash→SRAM末尾8KiBのBIOS展開、BOOT_MODEの6バイト固定応答を実装する。
 - [ ] Start＋SelectのBIOSメニュー、ゲーム設定、ROMエントリポイント移行を実装する。
@@ -69,7 +69,7 @@ Rev0.8 / 2026-11-19。採用構成はPSoC CY8C5287AXI-LP095、CPLD AG256SL100、
 
 ## 6. フェーズ5：SDK、互換性と頒布
 
-- [ ] PVSnesLib HiROM/SlowROMを最小構成で実機起動し、ROMバンク・SRAM・$5000通信を確認する。
+- [ ] PVSnesLib HiROM/SlowROMを最小構成で実機起動し、ROMバンク・ROM_SIZEの7段階・SRAM・$5000通信を確認する。
 - [ ] LoROM、ExLoROM、ExHiROMとFastROM指定のサンプル・ヘッダ・ベクタを検証する。
 - [ ] 65C816・ARM統合ビルド、マニフェストとセーブ領域、ローダを公開する。
 - [ ] エミュレータへROM4形式、ARM、SRAM、$5000通信、FIFO、BIOS APIを移植する。
@@ -79,7 +79,7 @@ Rev0.8 / 2026-11-19。採用構成はPSoC CY8C5287AXI-LP095、CPLD AG256SL100、
 
 ## 7. 最初の実機統合試験
 
-PVSnesLibのHiROM/SlowROM最小サンプルから開始する。NORの先頭に適切なHiROM物理イメージを配置し、CPLDをHiROM/SFC所有状態へ設定する。PSoCがSFCをリセット保持してSRAM BIOSを展開し、$00:FFFC/$00:FFFDおよび$00:8000–8003の固定値から$2F:6000へ実行を移す。SRAM BIOSが$5000通信を検証した後、WRAMコードから通常ROMへ移行する。これを通過してからFastROMとLoROM/Ex形式の検証へ進める。
+PVSnesLibのHiROM/SlowROM最小サンプルから開始する。NORの先頭に適切なHiROM物理イメージを配置し、CPLDをHiROM/SFC所有状態へ設定する。PSoCが直接接続した/RESETをLow保持してSRAM BIOSを展開し、$00:FFFC/$00:FFFDおよび$00:8000–8003の固定値から$2F:6000へ実行を移す。SRAM BIOSが$5000通信を検証した後、WRAMコードから通常ROMへ移行する。これを通過してからFastROMとLoROM/Ex形式の検証へ進める。
 
 ## 8. USBによる実行時連携
 
