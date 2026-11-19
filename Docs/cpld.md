@@ -1,106 +1,107 @@
-# CPLD・8bitレベル変換・高速バス仕様
+# CPLD・レベル変換・高速バスの接続仕様
 
-Rev.0.8 / 2026-11-19更新。採用ハードウェアは **AGM AG256SL100 + SN74LVC8T245DBR ×1 + Nexperia 74LVC245APW,118 ×5**。本書は現行回路の接続契約を定義する。AGM Supraフィッタでの配置・実使用LUT・タイミング、および電気的実測は未完了。
+Rev0.8 改訂案 / 2026-11-19。SFCの端子配列から部品配置を組み直した設計仕様。物理ピン候補とI/O数を確定し、AGM Supraでの合成・フィッティングとSTAは次工程とする。PSoCの端子表は[pinout.csv](pinout.csv)、AG256の全54信号は[cpld-pinout.csv](cpld-pinout.csv)を参照。
 
-## 1. 採用部品
+## 1. デバイスと電圧
 
-| 用途 | 型番・条件 |
-|---|---|
-| CPLD | AGM Microelectronics **AG256SL100**、不揮発、256 LUT/LE、最大80ユーザーI/O、LQFP-100 |
-| SFCデータ双方向変換 | TI **SN74LVC8T245DBR** ×1、8bit、VCCA=3.3V（MEM）、VCCB=5V（SFC）、SSOP-24 |
-| アドレス・制御の5V→3.3V変換 | Nexperia **74LVC245APW,118** ×5、各8bit、VCC=3.3V、5V許容入力、TSSOP-20 |
-| 外部メモリ | S29GL064S70TFI023（8MiB、70ns、x8）/ CY62128EV30LL-45SXI（128KiB、45ns） |
+| 部品 | 個数 | 役割 |
+|---|---:|---|
+| AGM AG256SL100 / LQFP100 / 3.3V | 1 | ROM4形式、7段階の容量ミラー、SRAM2形式、メモリ選択、バス所有権、SPECIAL_SEL |
+| TI SN74LVC8T245DBR | 1 | SFC D0–D7（5V）↔MEM D0–D7（3.3V）の8bit双方向変換 |
+| Nexperia 74LVC245APW,118 | 5 | 3.3V電源・5V許容入力の8bit片方向変換（全40レーン中38使用） |
+| S29GL064S70TFI023 | 1 | 8MiB NOR Flash、x8・70ns |
+| CY62128EV30LL-45SXI | 1 | 128KiB SRAM、45ns |
 
-AG256のVDDC・VDDIO1/2・VDDF33はメーカーのRev1.2推奨動作条件に従い3.3Vを供給する。AG256には5Vを直接接続しない。74LVC245Aは3.3V電源の**片方向運用**とし、5V側が入力、3.3V側が出力である。双方向の5V電圧変換は8T245だけが担当する。
+74LVC245Aはすべて5V信号を入力とし、3.3V信号を出力する固定方向とする。PSoCの3.3Vメモリ制御4線はAG256へ直結する。AG256自体へ5Vを印加しない。
 
-## 2. 6個の電圧変換ICの固定配分
+## 2. レベル変換ICの物理的なレーン再配分
 
-各74LVC245AはDIR固定で5V入力→3.3V出力とする。入力/出力のA/B端子は配線時にDIR真理値表と照合する。入力を混在させても同じ方向であり、全出力は3.3Vである。
-
-| 部品 | 8bitレーンの用途 | 出力先と出力許可 |
+| IC | 8bitレーンの接続 | /OE |
 |---|---|---|
-| 8T245 ×1 | SFC D0–D7 ↔ MEM D0–D7 | AGMがDIRと/OEを制御 |
-| LVC245A #1 | SFC A5–A12 | MEM A5–A12、AGMが/OEを制御 |
-| LVC245A #2 | SFC A0–A4、A13–A15 | AG256入力、常時有効（安全電源条件に従う） |
-| LVC245A #3 | SFC A16–A23 | AG256入力、常時有効 |
-| LVC245A #4 | SFC /ROMSEL・/RD・/WR、**SFC A12の複製**、PSoC CFG0–CFG3 | AG256入力、常時有効 |
-| LVC245A #5 | PSoC MODE_HILO、MEM_BUS_OE、**BOOT_MODE**、SD_SCK、SD_MOSI、SD_/CS | 最初の3本はAG256入力、SDの3本はmicroSDに直接接続。2レーン未使用 |
+| SN74LVC8T245 | SFC D0–D7 ↔ MEM D0–D7 | AG256がDIRおよび/OEを制御 |
+| LVC245A #1 | **SFC A4–A11 → MEM A4–A11** | AG256がMEM所有権に応じて制御 |
+| LVC245A #2 | SFC A0–A3、A12–A15 → AG256入力 | 通常のSFC監視中は有効 |
+| LVC245A #3 | SFC A16–A23 → AG256入力 | 通常のSFC監視中は有効 |
+| LVC245A #4 | SFC /ROMSEL、/RD、/WR、PSoC ARM_MEM_ENABLE、ROM_SIZE[0:2]、MODE_HILO → AG256入力 | 通常は有効 |
+| LVC245A #5 | PSoC MEM_BUS_OE、EXTENSION_ENABLE、BOOT_MODE → AG256、PSoC SD_SCK・SD_MOSI・SD_/CS → microSD | 通常は有効、2レーン予備 |
 
-変換対象はLVC245A側で8+8+8+8+6=**38/40レーン**。#1のA5–A12はMEM所有権切替時にHigh-Zとなるため、SFC A12を#4でもう一度受けてAG256の特殊領域デコードを維持する。microSDのSCK/MOSI//CSはAG256を経由せず#5から直接供給し、MISOはPSoCの3.3V SIO P12[5]へ直結する。#5の/OEとDIRはAG256から独立した固定方向・安全初期値とする。
+#1はSFC端子6～13番のA11～A4という連続8信号を受ける。MEM A12はAG256が生成するため、以前のA12複製入力は不要になる。#2・#3はSFC上位アドレスを監視し続けるため、ARMがMEMバスを所有しているときもSPECIAL_SELを生成できる。
 
-8T245はA側がMEM 3.3V、B側がSFC 5V。**DIR=High: A→B（MEM→SFC）、DIR=Low: B→A（SFC→MEM）、/OE=High: High-Z**。DIRと/OEの制御電圧はVCCA側の3.3Vである。/OEには3.3Vプルアップ、DIRにはデフォルトを定義する抵抗を設ける。
+8T245はA側=MEM 3.3V、B側=SFC 5Vとし、DIR=HighでMEM→SFC、DIR=LowでSFC→MEM、/OE=HighでHigh-Z。/OEは3.3Vプルアップ、DIRは安全な初期値を抵抗で定義する。#1の/OEも3.3Vプルアップで起動時High-Zを保証する。
 
-LVC245A #1はARM所有時、電源投入中、隔離中に/OE=Highとする。#2–#5はメモリバスを駆動しないため、SFC側アドレスやPSoC設定信号の監視を継続できる。#2–#5の初期出力許可はSFC/PSoC双方の起動状態と入力未定義時の扱いを回路図で確認する。
+## 3. SFC/ARM共有MEMバス
 
-## 3. MEMアドレスと共有メモリの接続
-
-| 共通MEMアドレス | SFC所有時 | ARM所有時 |
+| MEM信号 | SFC所有中 | ARM所有中 |
 |---|---|---|
-| A0–A4 | AG256（SFC A0–A4を出力） | PSoC P2[0:4] |
-| A5–A12 | LVC245A #1（SFC A5–A12を出力） | PSoC P2[5:7] / P6[0:4] |
-| A13–A14 | AG256（SFC A13–A14を出力） | PSoC P6[5:6] |
-| A15–A22 | AG256（ROM/SRAM形式で変換） | PSoC P6[7] / P1[2:7] / P15[4] |
+| A0–A3 | AG256出力 | PSoC P2[0:3] |
+| A4–A11 | 74LVC245A #1出力 | PSoC P2[4:7]、P6[0:3] |
+| A12–A15 | AG256出力 | PSoC P6[4:7] |
+| A16–A21 | AG256出力 | PSoC P1[2:7] |
+| A22 | AG256出力 | PSoC P12[6] |
+| D0–D7 | 8T245経由でSFCへ接続 | PSoC P5[0:7] |
+| /CE_ROM・/CE_RAM・/OE・/WE | AG256がSFC信号から生成 | AG256がPSoCのメモリ制御4入力を選択 |
 
-PSoCはMEM A0–A22の23本を維持する。SFC所有時はPSoCの23本をすべてHigh-Zにし、ARM所有時はAG256のメモリアドレス出力15本とLVC245A #1の8本をHigh-Zにする。SRAMの物理配線はSRAM A0–A12=MEM A0–A12、SRAM A13–A16=MEM A16–A19に固定する。
+SFC所有中はPSoCのMEMアドレス23本とMEMデータ8本をHigh-Z、ARM所有中はAG256のアドレス15出力、LVC245A #1、8T245をHigh-Zとする。AG256のメモリ制御4出力はHigh-Z化せず、隔離・起動中も非選択を駆動する。外付けのプルアップによりAG256未動作時も非選択を維持する。NORとSRAMの同時選択を禁止する。
 
-ROMのHiROM/LoROM/Ex形式に対応するA15–A22の変換と、HiROM SRAM 8KiB窓/LoROM SRAM 32KiB窓のMEM A16–A19生成はAG256で行う。容量ミラーリングはゲームローダがNORへの事前展開で行う。
+SRAM物理A0–A12=MEM A0–A12、物理A13–A16=MEM A16–A19。SFC SRAMアクセス時にはROM容量マスクを無効にし、HiROM 8KiB窓またはLoROM 32KiB窓のアドレス変換を使用する。MEM A12はSFC A12を通過する。
 
-## 4. メモリ制御信号のAG256一元化
+## 4. ROMの形式と7段階容量マスク
 
-**NOR /CE、SRAM /CE、共通/OE・/WEはAG256だけがメモリ側を駆動する。** 従来のようにPSoCとCPLDの出力を同一制御ネットに直結しない。
+| ROM_SIZE[2:0] | 実データ容量 | 容量マスク |
+|---|---|---|
+| 000 | 128KiB | ROM A17–A22 = 0 |
+| 001 | 256KiB | ROM A18–A22 = 0 |
+| 010 | 512KiB | ROM A19–A22 = 0 |
+| 011 | 1MiB | ROM A20–A22 = 0 |
+| 100 | 2MiB | ROM A21–A22 = 0 |
+| 101 | 4MiB | ROM A22 = 0 |
+| 110 | 8MiB | マスクなし（ExHiROM/ExLoROMの4MiB領域選択） |
+| 111 | 予約 | 不正値としてROM非選択の安全状態を選択 |
 
-PSoCのMEM_/CE_ROM=P12[6]、MEM_/CE_RAM=P12[7]、MEM_/OE=P15[5]、MEM_/WE=P12[4]は、3.3V側からAG256の**入力**へ直結する。AG256はCFG0 ARM_MEM_ENABLEとP4[7] MEM_BUS_OEの組合せによりSFC所有・隔離・ARM所有を区別し、SFC側デコード/ストローブまたはPSoC側4入力を選択する。不正な両有効状態ではメモリを非選択に固定する。隔離中と初期化前はROM/SRAM非選択、/OE=/WE非アクティブに固定する。AG256の4出力には独立した3.3Vプルアップを設け、起動中・CPLD未構成中・JTAG書込み時にも非選択を保証する。
+HiROM/LoROMの物理アドレスを生成した後でマスクを適用する。例えば物理A17の許可信号はSIZE≧1、A18はSIZE≧2、…、A22はSIZE≧6となる。この比較とマッピングMUXは可能な限り同じLUTで実装する。8MiB時はMODE_HILOで選択したExHiROMまたはExLoROMの4MiB領域デコードを使用する。実データが3MiBならNOR上で4MiB、5～6MiBなら8MiBへ元ゲームのミラー規則で展開してから対応するROM_SIZEを設定する。
 
-SFC→ARM切替はWRAM実行、外部ストローブ停止、AG256アドレスOE無効化、LVC245A #1無効化、8T245無効化、ガード時間、PSoC MEM GPIO出力有効化の順序とする。返却時は逆順で、AG256はメモリ制御線を常時安全状態に駆動する。制御出力をHigh-Zにする方式は採用しない。
+容量マスク専用の追加CPLDピンは不要であり、PSoC P4[1:3]の3本を#4経由で入力する。容量ミラーリングはNORのアドレスだけに適用し、SRAMやARMによるNOR書込みアドレスには適用しない。
 
-| SFCアクセス種別 | 8T245 | ROM /CE | RAM /CE | /OE | /WE |
-|---|---|---|---|---|---|
-| NOR読み出し | A→B | 有効 | 無効 | 有効 | 無効 |
-| SRAM読み出し | A→B | 無効 | 有効 | 有効 | 無効 |
-| SRAM書き込み | B→A | 無効 | 有効 | 無効 | 有効 |
-| $5000・固定ブート | High-Z | 無効 | 無効 | 無効 | 無効 |
-| ARM MEM所有 | High-Z | PSoC入力による | PSoC入力による | PSoC入力による | PSoC入力による |
-| 隔離・起動 | High-Z | 無効 | 無効 | 無効 | 無効 |
+## 5. 特殊応答・レジスタ・バス調停
 
-SRAM書込み時は8T245の方向とデータが確定してから/WEを有効にし、書込み終了後のデータ保持時間を保証する。NORの消去・書込みはARM所有中に限定する。
+AG256はSFC A0–A3、A12–A23、/ROMSEL・/RD・/WRと、PSoC側の8設定信号を入力する。SFC A4–A11はMEMへ向かうだけで、CPLDに入力しない。PSoC SFCバスへはSFC A0–A3（P3[0:3]）、SPECIAL_SEL（P3[4]）、/RD・/WR（P3[6:7]）、/ROMSEL（P15[0]）が直接到達する。
 
-## 5. SPECIAL_SELとBOOT_MODE
+通信領域は$00–$3F/$80–$BF:$5000–$5FFF、16アドレスを窓内へミラーする。EXTENSION_ENABLEで通信を有効化し、選択されない場合は通常マップを維持する。BOOT_MODE中は$00:FFFC–FFFDおよび$00:8000–8003への応答をPSoCが行う。AG256のSPECIAL_SELは「ブート候補または通信候補」を示し、PSoC側が/ROMSELとA3–A0およびBOOT_MODEで応答を識別する。特殊応答中のNOR/SRAMは非選択、8T245はHigh-ZでPSoC P0[7:0]のみがSFCデータを駆動する。ブート応答の6バイト以外へのデータ駆動は禁止する。
 
-AG256はSFCのA0–A4、A12–A23、/ROMSEL・/RD・/WR、およびPSoCのCFG[3:0]、MODE_HILO、MEM_BUS_OE、BOOT_MODEを受ける。SFC A5–A11をAG256へ入力する必要はない（MEMにのみ接続する）。通信・ブート候補デコードは以下のとおり。
+所有権の制御はARM_MEM_ENABLEとMEM_BUS_OEを使用する。
 
-- 通信: システムバンク$00–$3F/$80–$BFの$5000–$5FFFを選択、設定で拡張有効化。AG256がSPECIAL_SELを出力し、PSoC P3[5]がSFC A15とA0–A4でレジスタを確定する。
-- BOOT_MODE: PSoC P15[3]を専用**BOOT_MODE出力**へ変更し、LVC245A #5からAG256へ入力する。BOOT_MODE中の$00:8xxx/$00:Fxxxをブート候補として選択する。実データ応答はPSoCが$00:8000–8003/$00:FFFC–FFFDの6バイトだけを返す。
-- ブート候補および$5000ではNOR/SRAMの/CEを無効化し、8T245をHigh-Zとする。PSoC SFC P0[7:0]が直接応答する。
-- ARMがMEMを所有していてもSPECIAL_SELは有効とし、$5000通信を継続する。BOOT_MODE中でも$2F:6000–$2F:7FFFのSRAM BIOS窓は有効にする。
-- CFG0はARM_MEM_ENABLEに割り当て、P4[7] MEM_BUS_OEとの組合せでSFC/隔離/ARM状態を判定する（[bus-udb.md](bus-udb.md)参照）。CFG1–CFG3とMODE_HILOのROM/拡張設定はAG256 RTL作成時に一意に定義する。BOOT_MODEはCFGから独立した専用線とする。
+| ARM_MEM_ENABLE | MEM_BUS_OE | 状態 |
+|---:|---:|---|
+| 0 | 0 | 隔離 |
+| 0 | 1 | SFC所有 |
+| 1 | 0 | ARM所有 |
+| 1 | 1 | 異常時の隔離 |
 
-## 6. AG256SL100 論理I/O予算
+隔離状態でAG256のアドレス出力と#1/8T245をHigh-Zとし、MEM /CE_ROM、/CE_RAM、/OE、/WEをすべて非アクティブにする。SFCは本体WRAM上のコードからバス切替を要求し、PSoCのARM＋UDB FSMがISO→QUIET→CONFIG→GUARD→OWNERの手順を完了させる。ARM所有中もSPECIAL_SELを継続する。
 
-| AG256入力 | 本数 |
+## 6. AG256物理ピンおよびI/O数
+
+AG256の物理ピン指定はメーカーのAG256/AG272 100-pin pinout表を基にした[cpld-pinout.csv](cpld-pinout.csv)に記録する。SFC A0–A3を26～29、A12–A23を33～44、/ROMSEL・/RD・/WRを47～49、PSoCのモード設定を1～8および12/14～16、MEMアドレス出力を51～69の使用可能端子へ集約する。
+
+| 種別 | 内訳 | 本数 |
+|---|---|---:|
+| 入力 | SFCアドレス16、SFCストローブ3、PSoC設定8、ARM MEM制御4 | 31 |
+| 出力 | MEMアドレス15、MEM制御4、8T245 DIR/OE 2、#1 /OE 1、SPECIAL_SEL 1 | 23 |
+| **合計** | | **54/80** |
+
+JTAG 22～25番は専用に保持し、電源・GND/VDDF33の端子は信号へ使用しない。これらは物理的なピン候補であり、AGM Supraフィッティングとピンロックで配置可能性を確定する。
+
+## 7. FastROMタイミング評価の基準
+
+| 経路要素 | 暫定遅延 |
 |---|---:|
-| SFC A0–A4、A12–A23（5V→3.3V済み） | 17 |
-| SFC /ROMSEL・/RD・/WR（変換済み） | 3 |
-| PSoC CFG0–3、MODE_HILO、MEM_BUS_OE、BOOT_MODE（変換済み） | 7 |
-| PSoC MEM /CE_ROM、/CE_RAM、/OE、/WE（3.3V直結） | 4 |
-| **入力合計** | **31** |
+| 74LVC245A 5V→3.3V | 6.3ns（採用品の条件付き最大値として再照合） |
+| S29GL064S NOR（tACCまたはtCE） | 70ns |
+| SN74LVC8T245 3.3V→5V | 4.4ns（採用品の条件付き最大値として再照合） |
+| AG256のピン間組み合わせ遅延 | **目標10ns、暫定上限15ns** |
 
-| AG256出力 | 本数 |
-|---|---:|
-| MEM A0–A4、A13–A22 | 15 |
-| NOR/SRAM /CE、MEM /OE・/WE | 4 |
-| 8T245 DIR・/OE | 2 |
-| LVC245A #1 アドレス/OE | 1 |
-| SPECIAL_SEL | 1 |
-| **出力合計** | **23** |
+同一の入力変化基準で単純に120nsを配分すると、AG256以外に80.7nsを使うため残り39.3nsとなり、基板・負荷などの予備5～10nsを差し引いたCPLD予算は**29.3～34.3ns**。AG256を10nsとした場合の経路合計は90.7ns、15nsなら95.7ns（いずれもSFCの信号到着差、セットアップ・ホールド・出力有効化、基板条件は未算入）。特にSFC /ROMSELはアドレスと同時に到着するとは限らず、/CE起点の70ns経路の実際の利用可能時間は別途評価する。tACC・tCE・tOEは直列に足す遅延ではなく、信号ごとの到着時刻で比較する。
 
-**計54/80 I/O（入力31＋出力23、余剰26本）**。JTAG TMS/TDI/TCK/TDOは別の専用端子を使用する。AG256は256 LUTで、実LUT使用量・ピン配置・タイミングはSupraによる合成・フィッティングで確定する。
+AG256資料のT_IN最大1.308ns、LUT最大1.111ns、T_DO最大2.140ns等は素子単体の内部遅延値であり、約10nsという例示計算は配置配線済みのSTA結果ではない。FastROM 120nsへの適合はAGM Supraのピン間STAとSFC実機タイミングによって確認する。
 
-## 7. 電源・タイミング・設計検証
-
-AG256の全VDDC、VDDIO1/2、VDDF33に3.3Vを供給し、電源端子ごとにデカップリングを配置する。PSoCの5V GPIO信号はLVC245Aで変換し、PSoCの3.3V MEM制御4本だけをAG256に直結する。AG256出力3.3VのSPECIAL_SELをPSoCの5Vドメインで受ける際はLVTTL設定・VIHを確認する。PSoCの/RESETとSFC D0–D7は従来どおり5V直接接続を維持する。
-
-FastROM目標120ns、SlowROM200ns。最長経路はSFC A→LVC245A→AG256→NOR（70ns）→8T245→SFC Dおよび/ROMSEL→LVC245A→AG256→NOR /CE→8T245→SFC D。SRAM書込みのデータ/WE競合、LVC245A #1のHigh-Z切替、8T245のDIR/OE、SFC 5V VIH/VOHも測定対象とする。
-
-AGM Supraにて256 LUT・54 I/Oへの収容、AG256 LQFP100物理ピン割当て、全デコード論理、出力High-Z、STAを検証する。資料上のLUT数やメーカー公称素子遅延だけを合格判定としない。AGM Supraのライセンス取得条件・書込み治具・JTAG動作も試作前に確定する。
-
-参考: [AGM AG256製品](https://www.agmcn.com/product-news/1667.html)、[AGM CPLD Rev1.2](https://www.agm-micro.com/upload/userfiles/files/AG_CPLD_Rev1_2.pdf)、[TI 8T245](https://www.ti.com/product/SN74LVC8T245)、[Nexperia LVC245A](https://www.nexperia.com/products/analog-logic-ics/logic/buffers-inverters-transceivers/transceivers/serie/74lvc245a-74lvch245a)。
+参考: [AG256/AG272公式ピン表・内部遅延](https://datasheet.lcsc.com/lcsc/1810010911_AGM-Microelectronics-AG256SL100_C133745.pdf)、[SN74LVC8T245](https://www.ti.com/product/SN74LVC8T245)、[74LVC245A](https://www.nexperia.com/products/analog-logic-ics/logic/buffers-inverters-transceivers/transceivers/serie/74lvc245a-74lvch245a)。

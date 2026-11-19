@@ -39,7 +39,7 @@ ARMゲームはCortex-M3向けのネイティブバイナリとして生成し�
 
 ## 2. microSDとUSB/SWD
 
-microSDはSPI（SCK、MOSI、MISO、/CS）で接続する。PSoCの5Vポートから出力するSCK、MOSI、/CSは74LVC245APW,118 #5で3.3Vへ変換し、AG256を経由せずmicroSDへ直接接続し、MISOはPSoCの3.3V SIOへ直結する。SPIはUDBによるハードウェア実装（高速SPI候補は18Mbps級）またはARMによるGPIOソフトウェア実装（同じピン配置）とする。メモリバス、通信、FIFOのUDB資源を優先して選択する。PSoC 5LPには固定機能SPI/SCBが存在しない。ソフトウェア実装時はP12の他のメモリ制御ビットを保持する。FAT系ファイルシステムを想定し、ゲーム、リソース、設定、セーブ、既存ROM向けパッチを保存する。
+microSDはSPI（SCK、MOSI、MISO、/CS）で接続する。PSoCの5Vポートから出力するSCK、MOSI、/CSは74LVC245APW,118 #5で3.3Vへ変換し、AG256を経由せずmicroSDへ直接接続し、MISOは3.3VのmicroSDからPSoC P12[3]（5V電源のSIO入力）へ接続する。3.3V信号を判定するためSIOの差動入力基準（0.4×VDDIO）をPSoC Creatorで設定する。SPIはUDBによるハードウェア実装（高速SPI候補は18Mbps級）またはARMによるGPIOソフトウェア実装（同じピン配置）とする。メモリバス、通信、FIFOのUDB資源を優先して選択する。PSoC 5LPには固定機能SPI/SCBが存在しない。ソフトウェア実装時はP12の他ビット（MEM制御・VBUS検出）を保持する。FAT系ファイルシステムを想定し、ゲーム、リソース、設定、セーブ、既存ROM向けパッチを保存する。
 
 Full-Speed USBはPCとの通信、共通ファームウェア更新、ゲーム転送、デバッグ情報の取得、設定変更、開発用データの読み書きに利用する。USBプロトコルとPCツールはSDKと並行して定義する。
 
@@ -73,17 +73,17 @@ PSoCの初回プログラム書き込み、デバッグ、USBブートローダ�
 | config.json | カートリッジ設定 |
 | patches/ | 既存ROM向けパッチ |
 
-manifestにはゲーム名、バージョン、ゲームID、必要なBIOSバージョン、ARMコードの実行条件、ROMマッピング（HiROM、ExHiROM、LoROM、ExLoROM）・有効容量、NORへの事前ミラー展開規則、SRAM形式・使用容量、リソース情報などを記録する。正式な形式とフィールドはSDK仕様として確定する。
+manifestにはゲーム名、バージョン、ゲームID、必要なBIOSバージョン、ARMコードの実行条件、ROMマッピング（HiROM、ExHiROM、LoROM、ExLoROM）・有効容量、2冪ハードウェア容量マスク・非2冪NOR展開規則、SRAM形式・使用容量、リソース情報などを記録する。正式な形式とフィールドはSDK仕様として確定する。
 
 ## 4. 開発カートリッジの起動処理
 
 1. 電源投入時にCIC認証とPSoC初期化を開始する。PSoCの起動中はAG256のMEMアドレス15出力とLVC245A #1、8T245をHigh-Zとし、AG256のメモリ制御4出力はプルアップによってNOR/SRAMの/CE・/OE・/WEを非アクティブに維持する。CPLDの不揮発構成は固定とし、制御レジスタ/入力ピンによる動作モードを起動時に設定する。
-2. PSoC起動後にSFC /RESET（P15[1]）をオープンドレインLowでアサートし、BIOS準備とゲーム用設定完了まで保持する。SFC本体のCICおよび/RESET駆動条件は実機で検証する。
+2. PSoC起動後にSFC /RESET（SFC端子26→P15[1]物理43番へ直接接続）をオープンドレインLowでアサートし、BIOS準備とゲーム用設定完了まで保持する。SFC本体のCICおよび/RESET駆動条件は実機で検証する。
 3. ARMが共有MEMバスの所有権を取得する。AG256のMEMアドレス15出力、LVC245A #1、8T245をHigh-Zとする。メモリ制御信号はAG256だけが出力し、ARM所有時にはPSoCの4本のメモリ制御GPIOからAG256へ入力した値を選択する。PSoCはMEM A0–A22とD0–D7を直接駆動する。
-4. ARMはゲームパッケージのROM形式、サイズ、ミラーリング、セーブ領域を解析する。HiROM・ExHiROM・LoROM・ExLoROMの形式と物理NOR配置が一致するよう、必要なバイトを事前展開する。同一イメージが既にNORに存在する場合は識別情報を比較して消去・書込みを省略する。
+4. ARMはゲームパッケージのROM形式、実容量、7段階ハードウェアミラー、非2冪ROMの展開規則、セーブ領域を解析する。HiROM・ExHiROM・LoROM・ExLoROMの形式と物理NOR配置が一致するよう、128KiB～8MiBの2冪ROMは重複展開せずROM_SIZEを設定し、3MiB等の非2冪容量だけ元のミラー規則に基づくバイト列をNORへ事前展開する。同一イメージが既にNORに存在する場合は識別情報を比較して消去・書込みを省略する。
 5. ARMが必要に応じてNORを書き込み、ゲーム用ARMネイティブコードを内蔵SRAMへ展開する。BIOSはPSoC内蔵Flashから外部SRAM末尾8KiB（0x1E000–0x1FFFF）に展開する。この領域は永続セーブ対象に含めない。
 6. ARMはPSoC P15[3]の専用BOOT_MODE出力を74LVC245A #5経由でAG256へ通知し、$00:8xxx/$00:Fxxxのブート候補をNORから隔離する。PSoCは$00:FFFC–FFFDに$8000、$00:8000–8003に`JML $2F6000`の6バイトを返す準備をする。起動用のHiROM SRAM窓$2F:6000–$2F:7FFFを有効にしたまま、バスをSFCへ返却する。
-7. SFC /RESETを解放する。65C816はPSoCの固定値応答から$2F:6000（物理SRAM 0x1E000）のBIOSへ移る。CPLDがSPECIAL_SELを出力し、PSoCはSFC A15/A0–A4と必要な中位アドレスで対象6バイトを判定する。
+7. SFC /RESETを解放する。65C816はPSoCの固定値応答から$2F:6000（物理SRAM 0x1E000）のBIOSへ移る。CPLDがSPECIAL_SELを出力し、PSoCはP15[0]の/ROMSEL、P3[0:3]のA0–A3、BOOT_MODEとSPECIAL_SELで対象6バイトを判定する。
 8. BIOSは$5000通信でBOOT_MODE解除を要求し、解除完了を確認する。SRAM BIOSを実行中はそのウィンドウを維持する。割り込みベクタを準備してから割り込みを許可する。
 9. BIOSはStart＋Selectの同時押しでメニュー継続を選択し、指定がなければ前回ゲームの起動へ進む。ゲームの書込みや形式変更ではSFCをWRAMコード上へ移し、$5000通信でARMへ所有権を引き渡す。AG256のMODE_HILO/CFGとSRAM窓、8T245・LVC245A #1の/OEが安定してからSFCへ返却する。
 10. WRAMコードがゲームROMのリセットベクタを取得してエントリポイントへ移る。BIOS再起動時にはSFCを再リセット保持し、SRAM BIOSを再展開して同じ固定値応答から開始する。
@@ -116,6 +116,6 @@ USBホスト駆動機能は現行回路の応用であり、実装・動作確�
 
 ## ROM展開と追加音声ドライバ
 
-ゲームローダはROM容量とゲーム固有のミラー規則を判定し、SFCから観測される全ROMアドレスに対して正しいデータが返るようNORイメージを事前に配置する。形式はHiROM、ExHiROM、LoROM、ExLoROMの4種類とし、CPLD側MODE_HILO/CFGと一致させる。NORキャッシュ再利用、消去セクタ・書込みバッファの最適化を行う。
+ゲームローダはROMの実容量とゲーム固有のミラー規則を判定し、2冪容量では128KiB～8MiBの7段階ROM_SIZEをAG256へ設定してNORに元データだけを書き込み、非2冪容量では次の2冪容量まで必要なデータをNORへ展開する。形式はHiROM、ExHiROM、LoROM、ExLoROMの4種類とし、CPLD側MODE_HILO/ROM_SIZEと一致させる。NORキャッシュ再利用、消去セクタ・書込みバッファの最適化を行う。NORはBYTE#=LowでMEM A0→DQ15/A-1、MEM A1–A22→NOR A0–A21の物理配線を使用するため、NORコマンドアドレスもバイトアドレスで生成する。
 
 追加モノラル音声ドライバはPSoC内蔵DVDAC、タイマー、DMA、内部SRAMのサンプルバッファで構成する。初期評価は10bit・32kHz PCM、12bitは低帯域で評価する。外部音声入力のアナログレベル、起動/停止時のポップノイズ、DMA負荷は実機で測定する。SPC700とS-DSPの標準音声機能は維持する。[audio.md](audio.md)参照。
