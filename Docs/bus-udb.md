@@ -9,7 +9,7 @@ NOR/SRAMは23bitアドレス・8bitデータの3.3V共通MEMバスを使う。AR
 | 信号 | SFC所有 | 隔離 | ARM所有 |
 |---|---|---|---|
 | AG256 MEMアドレス15本 | 有効 | High-Z | High-Z |
-| 74LVC245A #1（SFC A5–A12→MEM） | 有効 | High-Z | High-Z |
+| 74LVC245A #1（SFC A4–A11→MEM） | 有効 | High-Z | High-Z |
 | PSoC MEM A0–A22 | High-Z | High-Z | GPIO駆動 |
 | AG256 MEM /CE_ROM、/CE_RAM、/OE、/WE | SFCデコード | 全非選択 | PSoCからの4制御入力を選択 |
 | PSoC MEM 4制御GPIO | AG256への入力、非選択 | AG256への入力、非選択 | AG256への入力、読書き駆動 |
@@ -31,7 +31,7 @@ PSoC P4[6]からAG256へ渡すMEM_BUS_OEはSFC側MEMアドレス有効化に使�
 | 1 | 0 | ARM所有（AG256アドレス＋LVC245A #1無効、PSoCの制御入力を選択） |
 | 1 | 1 | 不正組合せとして隔離（フェイルセーフ） |
 
-ROM_SIZE[0:2]=P4[1:3]は128KiB～8MiBの7段階容量、MODE_HILO=P4[4]はROM形式、EXTENSION_ENABLE=P4[7]は$5000通信の許可、BOOT_MODE=P15[3]は起動固定応答を担当する。BOOT_MODEはP15[3]からの独立信号である。AG256の回路出力が有効になる前はプルアップにより4つのメモリ制御を非選択にする。CFG0・MEM_BUS_OEの初期値が隔離を選ぶよう抵抗を設ける。
+ROM_SIZE[0:2]=P4[1:3]は128KiB～8MiBの7段階容量、MODE_HILO=P4[4]はROM形式、EXTENSION_ENABLE=P4[7]は$5000通信の許可、BOOT_MODE=P15[3]は起動固定応答を担当する。BOOT_MODEはP15[3]からの独立信号である。AG256の回路出力が有効になる前はプルアップにより4つのメモリ制御を非選択にする。ARM_MEM_ENABLE・MEM_BUS_OEの初期値が隔離を選ぶよう抵抗を設ける。
 
 ## 3. 所有権ハンドシェイク
 
@@ -88,6 +88,6 @@ UDBの事前配分目安はブート2–4、通信3–5、双方向FIFO2–4、�
 
 ## 7. タイミングと検証
 
-FastROM 120ns、SlowROM 200nsを目標とする。SFC A→74LVC245A #2/#3→AG256→NOR A/CE（70ns）→8T245→SFC Dが最長経路候補である。SFC A5–A12→LVC245A #1→MEM Aへの経路は独立に測定する。AG256内の配置・配線、入力バッファ、/ROMSELの選択、NOR /OE起点15ns、8T245/OEと伝搬遅延を組み合わせてSTAする。
+FastROM 120ns、SlowROM 200nsを目標とする。SFC A→74LVC245A #2/#3→AG256→NOR A/CE（70ns）→8T245→SFC Dが最長経路候補である。SFC A4–A11→LVC245A #1→MEM Aへの経路は独立に測定する。AG256内の配置・配線、入力バッファ、/ROMSELの選択、NOR /OE起点15ns、8T245/OEと伝搬遅延を組み合わせてSTAする。
 
 SRAM書込みの/WEとデータ、バス切替のHigh-Z有効時間、SPECIAL_SEL→PSoC UDB→P0応答、3.3V SPECIAL_SELの5V PSoC LVTTL入力条件を検証する。AGM SupraフィッタとPSoC Creatorの配置配線、ロジックアナライザ/オシロスコープ実測を完了判定に使用する。
