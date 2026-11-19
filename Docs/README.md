@@ -11,12 +11,13 @@ AG32VF407VGT6（RISC-V＋FPGA）を1チップ制御SoCとし、SFCアドレス18
 | [bus.md](bus.md) | AHB、所有権、共通MEMデータの調停 |
 | [communication.md](communication.md) | 64アドレス通信窓、FIFO、IRQ |
 | [firmware.md](firmware.md) | RISC-Vローダ・SRAM BIOS・ブート |
-| [audio.md](audio.md) | DAC0/1とステレオ音声 |
+| [audio.md](audio.md) | 64kHzステレオPCM・1bit DSM・DAC比較・DSP・PIN29/30音声出力 |
 | [power-cic.md](power-cic.md) | 電源・SRAM保持・CIC・リセット |
 | [fpga-development.md](fpga-development.md) | Supra Native、ライセンス、DAP |
 | [production.md](production.md) | Rev.0.9 BOM、PCB、販売構想 |
 | [roadmap.md](roadmap.md) | 未検証と実装工程、INT16×4 MACストレッチ目標 |
 | [prototypes/3d-demo/README.md](prototypes/3d-demo/README.md) | Rev.0.9のRISC-V性能を用いた3Dデモ構想、解像度・FPS・VRAM転送検証 |
+| [prototypes/audio-demo/README.md](prototypes/audio-demo/README.md) | 多重PCM・5バンドEQ・エフェクト・64kHzステレオDSMのデモと音質測定計画 |
 | [rom-compatibility.md](rom-compatibility.md) | 既存ROMの互換性 |
 | [sdk-emulator.md](sdk-emulator.md) | SDK、USB連携、エミュレータ |
 | [references.md](references.md) | 参照資料 |
