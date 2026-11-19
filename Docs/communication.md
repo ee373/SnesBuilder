@@ -20,28 +20,27 @@ Rev.0.8 / 基本設計段階
 
 ## 2. 通信レジスタ
 
-正式なベースアドレスは$00:5000、通信領域はシステムバンク$00～$3F/$80～$BFの$5000～$5FFFとする。extension_enableで有効化する。A0～A4のみを使用し、32バイトごとにミラーする。予約領域は実装済みレジスタとは区別する。
+正式なベースアドレスは$00:5000、通信ウィンドウはシステムバンク$00–$3F/$80–$BF:$5000–$5FFFとする。PSoC P4[7]のEXTENSION_ENABLEで有効化し、**SFC A0–A3の16アドレスを全ウィンドウへミラー**する。AG256が上位アドレスからSPECIAL_SELを生成し、PSoC P3[0:3]（A0–A3）、P3[4]（SPECIAL_SEL）、P3[6:7]（/RD・/WR）、P15[0]（/ROMSEL）を使用してレジスタを選択する。
 
 | オフセット | レジスタ | SFC側 | 機能 |
 |---|---|---|---|
 | $00 | COMMAND | W | ARMへの処理要求 |
 | $01 | STATUS | R | bit0 BUSY、bit1 ARM所有、bit2 IRQ pending |
 | $02 | REPLY | R | ARMからの応答 |
-| $03 | BUS_CONTROL | R/W | R: bit0 ARM所有、bit1 隔離、W: 所有権要求 |
-| $04 | TX_DATA | W | FIFO送信 |
-| $05 | RX_DATA | R | FIFO受信 |
-| $06 | FIFO_STATUS | R | FIFO状態 |
-| $07 | IRQ_CONTROL | R/W | bit0 IRQ許可 |
-| $08 | IRQ_STATUS | R/W | bit0 pending、W: ファームウェアによるクリア要求 |
+| $03 | BUS_CONTROL | R/W | R: ARM所有/隔離、W: 所有権要求 |
+| $04 | TX_DATA | W | SFC→ARM FIFO |
+| $05 | RX_DATA | R | ARM→SFC FIFO |
+| $06 | FIFO_STATUS | R | FIFOのFULL/EMPTY、異常 |
+| $07 | IRQ_CONTROL | R/W | IRQ許可 |
+| $08 | IRQ_STATUS | R/W | pendingとクリア要求 |
 | $09 | LENGTH_LO | R/W | 転送サイズ下位 |
 | $0A | LENGTH_HI | R/W | 転送サイズ上位 |
 | $0B | ERROR | R | エラー |
-| $0C～$0F | 予約 | — | |
-| $10～$1F | 予約 | — | 将来の引数・結果・間接アクセス等 |
+| $0C–$0F | 予約 | — | 将来の間接アドレス・引数等 |
 
-通信レジスタは$00～$0Bの12アドレスを初期実装対象とし、予約アドレスはレジスタ応答を行わない。ARMへの書き込み通知には共通8bitメールボックスと、COMMAND・BUS_CONTROL・IRQ_CONTROL・IRQ_STATUS・LENGTH_LO・LENGTH_HIなどを識別できる3bit以上の種別を使用する。書き込み要求を1bitシーケンスで保持し、2FF CDCでARMへ通知する。ARMはデータと種別を処理し、REPLY・IRQ等を確定後にACKを更新する。ACKとシーケンスが一致するまでBUSYとし、BUSY中の新規書き込みは無視されるため、SFCはBUSY解除を待つ。CDCのセットアップ/ホールド、リセット復旧は実装時に検証する。
+SFC→ARMは共通8bitメールボックスとレジスタ種別、トグル/ACKを組み合わせ、2FF CDCでARMへ通知する。BUSY中の上書きを防ぎ、ARMがデータを読み出した後にACKする。ARM→SFCの読出し値はUDB側へ事前設定し、SFCアクセス時の応答にARM割り込みやクロックドメイン同期の終了を必要としない。
 
-SFC→ARMはUDB内部割り込み、ARM→SFCはP15[2]のオープンドレイン/IRQ（SFC端子18）を使用する。ARMがpendingを保持し、IRQ許可とSFC側の割り込みベクタ有効状態を確認して通知する。ARMのMEMバス所有中にも$5000通信自体は使用できるが、IRQ受理時にカートリッジROMをフェッチしないプロトコルを設ける。ポーリングも使用可能とする。ARM側のUDBアドレスはCreatorの配置に依存するためBIOS APIで抽象化する。
+SFCからの読出しデータ経路には8bit MUXを設け、ブート6バイト、レジスタ、RX FIFOの出力を選択する。P0[7:0]の出力許可は対象読出し時のみ有効とし、AG256は同一サイクルのNOR/SRAM非選択と8T245 High-Zを保証する。SFC /IRQはP15[2]をオープンドレイン出力とする。ARMがMEMを所有している間も通信レジスタとFIFOを使用できる。
 
 ## 3. 共有SRAM
 
@@ -53,7 +52,7 @@ ARM所有中も$5000通信によって状態確認できる。SFC D0～D7は5V�
 
 ## 4. 双方向FIFO・DMA
 
-初期実装は基本6レジスタ、FIFO関連3レジスタ、LENGTH_LO/HI・ERRORの計12個とし、20アドレスを予約とする。32アドレス空間をすべて独立した記憶回路として実装しない。ARM内部のControl Register/Status Registerを利用する。
+初期実装は基本6レジスタ、FIFO関連3レジスタ、LENGTH_LO/HI・ERRORの計12個とし、4アドレスを予約とする。16アドレス空間をすべて独立した記憶回路として実装しない。ARM内部のControl Register/Status Registerを利用する。
 
 | パラメータ | 仕様 |
 |---|---|
@@ -83,7 +82,7 @@ FULL/EMPTYは一時保持・処理中データも含めたSFCから観測でき�
 
 SFC DMAは固定アドレス$5005からVRAM/CGRAM/OAM等へ転送可能とする。NTSCで約2.68MB/s、1バイト約372.5ns。4バイトで約1.49µs分、40MHzの内部制御クロックなら1バイトあたり約15周期。SFC DMAには外部ウェイトを挿入できないため、バースト開始条件、DMA最悪供給遅延、プリフェッチ、FIFO空対策を検証する。連続DMAの達成は未検証。
 
-ARM側ハードウェアレジスタ設計予算はControl 7個（所有権・システム、ACK/IRQ、有効化/REPLY、ROM設定、転送長LO/HI、FIFO制御を配分）、Status 4個（コマンドデータ、種別/状態、FIFO状態、転送/エラー）。具体的なビット割り当てはCreator配置とABIで決定する。データパスPI/POとStatus/Control経路の共有制約に注意する。32アドレスを超える将来の機能は間接インデックス／データポートを予約領域に割り当てられる。
+ARM側ハードウェアレジスタ設計予算はControl 7個（所有権・システム、ACK/IRQ、有効化/REPLY、ROM設定、転送長LO/HI、FIFO制御を配分）、Status 4個（コマンドデータ、種別/状態、FIFO状態、転送/エラー）。具体的なビット割り当てはCreator配置とABIで決定する。データパスPI/POとStatus/Control経路の共有制約に注意する。16アドレスを超える将来の機能は間接インデックス／データポートを予約領域に割り当てられる。
 
 ## 5. 音源処理
 
