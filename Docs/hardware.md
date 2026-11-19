@@ -1,202 +1,119 @@
 # ハードウェア基本仕様
 
-Rev.0.7 / 基本設計段階
+Rev.0.8 / 2026-11-19。採用回路の接続方針を記載する。CPLD/Creatorの物理ピン制約、STAおよび電気的検証は未完了である。
 
-## 1. 基本仕様
+## 1. 基本構成
 
-| 項目 | 仕様 |
+| 項目 | 採用仕様 |
 |---|---|
-| 対応機種 | スーパーファミコン |
-| メインプロセッサ | Infineon PSoC 5LP / CY8C5287AXI-LP095 |
-| CPU | ARM Cortex-M3、32bit、Thumb/Thumb-2、最大80MHz |
-| 内蔵Flash / SRAM / EEPROM | 256KiB / 64KiB / 2KiB |
-| UDB / PLD / マクロセル / データパス | 24 / 48 / 192 / 24 |
-| DMA | 24チャネル |
-| FPU | 非搭載 |
-| 16bit固定Timer/PWM | 4個 |
-| パッケージ | TQFP-100、14mm×14mm |
-| I/O | GPIO 62、SIO 8、USBIO 2、合計72 |
-| 外部ROM | 8MiBパラレルNOR |
-| 外部RAM | 128KiB非同期SRAM、CR2032バックアップ |
-| 外部ストレージ | microSD（SPI） |
-| PC接続 | Full-Speed USB（12Mbps） |
-| デバッグ | SWD |
-| CIC | PIC12F629 |
-| SFCバス | 24bitアドレス、8bitデータ、5V |
-| メモリバス | 23bit論理バイトアドレス、8bitデータ、3.3V |
-| マッピング | HiROM・ExHiROM切替、1MiB単位のROMミラーリング、PSoC DVDAC音声出力 |
-| 外部3SB | SN74LVC16244ADL |
-| ROMタイミング | SlowROMを必須、FastROMをストレッチ目標とする |
+| 対応機種 | スーパーファミコン / SNES |
+| メインMCU | Infineon PSoC 5LP CY8C5287AXI-LP095、ARM Cortex-M3 最大80MHz |
+| MCU内蔵メモリ | Flash 256KiB / SRAM 64KiB / EEPROM 2KiB |
+| PSoC UDB | 24 UDB、48 PLD、192マクロセル、24データパス |
+| CPLD | Lattice LC4064V-75TN100C、3.3V、64マクロセル、64 I/O＋10専用入力、100-TQFP |
+| 双方向レベル変換 | SN74LVC16T245DLR、3.3V側A / 5V側B、8bit独立2グループ |
+| 外部ROM | S29GL064S70TFI023、8MiB、x8、70ns、3.3V |
+| 外部RAM | CY62128EV30LL-45SXI、128KiB、45ns、3.3V、電池バックアップ |
+| ROM形式 | HiROM、ExHiROM、LoROM、ExLoROM |
+| ROMミラー | ゲームロード時のNORイメージ事前展開 |
+| ROMアクセス目標 | SlowROM 200ns以内、FastROM 120ns以内（合成・実機検証待ち） |
+| SFCインターフェース | 5V、24bitアドレス、8bitデータ |
+| 共通メモリバス | 3.3V、23bitバイトアドレス、8bitデータ |
+| 外部メモリ所有 | SFCとPSoC ARMで排他切替 |
+| CPU間通信 | $5000–$5FFFの32アドレス＋双方向4byte FIFO＋DMA・IRQ |
+| 記録媒体 | microSD（SPI） |
+| PC通信 | USB Full-Speed、12Mbps、PSoCはUSBデバイス |
+| 追加音声 | PSoC DVDAC→LPF→MCP6001→SFCカートリッジ外部音声L/R |
+| CIC | PIC12F629、SuperCIC Keyを使用する想定 |
+| 開発・量産実装 | 4層1.2mm基板、ENIG端子、外部リード付きIC、試作は手はんだ |
 
-部品仕様は会話時点の選定情報であり、回路図作成前にメーカー資料で型番、ピン、電気的特性を確認する。複数のVDDIOを利用し、SFC側5Vと外部メモリ側3.3Vのインターフェースを分ける。
+NORの全8MiBをゲームイメージとリソースに使用できる構成とし、SFC側BIOSはPSoC内蔵Flashに保存して起動時に共有SRAM末尾8KiBへ展開する。
 
-## 2. メインプロセッサと役割
+## 2. 回路の役割分担
 
-ARMはシステム制御およびゲーム固有の演算処理を担当し、C/C++またはThumb-2アセンブリで開発したネイティブコードを実行する。FPUを持たないため高速処理には固定小数点・整数演算を使用する。SFCからの処理要求に応じるほか、独立したゲームループも可能とする。
+**CPLD** は5VのSFCアドレス・制御を入力し、3.3VのROM/SRAMアドレス・/CE・/OE・/WEを高速生成する。HiROM/LoROM系のアドレス変換、SRAMウィンドウの選択、バス所有権に応じたHigh-Z制御、16T245第1グループのDIR・/OE、SPECIAL_SEL、microSD向け3信号の5V→3.3V変換を担当する。通常のROM読出しにARMやUDBを経由させない。
 
-UDBは固定チップセットとし、構成を共通ファームウェアの一部として管理する。ゲームごとに論理構成を変更せず、開発者は共通ハードウェアインターフェースを使用する。
+**PSoC 5LP** はARM演算、ゲームローダ、NOR消去・書込み、BIOS展開、USB、microSDアクセス、$5000通信レジスタ、FIFO、DMA、IRQ、バス所有権のハンドシェイク、SFCリセット、および追加音声を担当する。SFCデータバスP0と共有MEMデータバスP5は独立した8bitポートとする。
 
-## 3. 接続構成
+**SN74LVC16T245DLR** はグループ1（データ8bit双方向）とグループ2（アドレス8bit SFC→MEM）に分ける。VCCA=3.3V、VCCB=5Vとする。DIR/OE制御入力はVCCA基準の3.3V系で駆動する。グループ2の/OEは所有権を制御するPSoC P15[3]からオープンドレインと3.3Vプルアップを介して駆動し、グループ1のDIR/OEはCPLDが生成する。各制御信号の非アクティブ初期値を抵抗で保証する。
+
+詳細の論理的I/O配分は[cpld.md](cpld.md)、電源は[power-cic.md](power-cic.md)を正本とする。
+
+## 3. SFC／メモリバス接続
 
 ```text
-                   Super Famicom (5V)
-                         |
-             +-----------+-----------+
-             |                       |
-      A0-A4,A12-A15,A20-A23      A5-A11,A16-A19
-      D0-D7 / Control / IRQ                |
-             |                       |
-     +-------v--------+      +-------v-------+
-     | PSoC 5LP       |----->| 74LVC16244A   |
-     | ARM / UDB / DMA | /OE  | 3-State Buffer|
-     | Flash / SRAM   |      +-------+-------+
-     +-------+--------+              |
-             +-----------+-----------+
-                         |
-              Shared Memory Bus (3.3V)
-                  23bit A / 8bit D
-                         |
-             +-----------+-----------+
-             |                       |
-        NOR Flash 8MiB          SRAM 128KiB
-                                     |
-                                  CR2032
+      SFC 5V A0..A23, /ROMSEL, /RD, /WR
+                   |            |
+                   |            +---------------------+
+                   v                                  v
+        +-------------------+                 +------------------+
+        | LC4064V CPLD 3.3V |                 | PSoC SFC inputs  |
+        | mapper /CE/OE/WE  |                 | P4 A0..4, A15    |
+        | MEM A0..4,13..22  |                 | P0 SFC D0..7     |
+        +---------+---------+                 +---------+--------+
+                  |                                     |
+                  +---- shared MEM A0..22               |
+                  |                                     |
+SFC A5..12 -------+---- [16T245 group 2 B->A] -- MEM A5..12
+SFC D0..7 <------------ [16T245 group 1] <----> MEM D0..7
+                  |                                     |
+                  +---- 8MiB NOR / 128KiB SRAM         |
+                                ^                       |
+                                +---- PSoC MEM A/D/control
 ```
 
-PSoCにmicroSD、USB、SWDを接続する。CICはPIC12F629で独立実装する。NORとSRAMはデータバスとアドレスバスの大部分を共有し、個別のチップイネーブルによって選択する。
+| MEM信号 | SFC所有時の駆動 | ARM所有時の駆動 |
+|---|---|---|
+| A0–A4 | CPLD SFC A0–A4 | PSoC P2[0:4] |
+| A5–A7 | 16T245 SFC A5–A7 | PSoC P2[5:7] |
+| A8–A12 | 16T245 SFC A8–A12 | PSoC P6[0:4] |
+| A13–A14 | CPLD SFC A13–A14 | PSoC P6[5:6] |
+| A15 | CPLD（ROM/形式に応じる） | PSoC P6[7] |
+| A16–A21 | CPLD（ROM/SRAM形式に応じる） | PSoC P1[2:7] |
+| A22 | CPLD | PSoC P15[4] |
+| D0–D7 | SFC⇄MEMは16T245、通信時はPSoC P0直結 | PSoC P5[0:7] |
+| /CE_ROM・/CE_RAM・/OE・/WE | CPLD | PSoC P12・P15 |
 
-## 4. 外部3ステートバッファ
+SFC所有時、PSoCのMEMアドレス出力はすべてHigh-Zとする。ARM所有時、CPLDのメモリアドレス15出力と16T245アドレス側8出力はHigh-Zとする。通信領域では16T245のデータ側をHigh-Zにし、PSoC P0からSFCへ直接応答する。
 
-| 項目 | 仕様 |
+## 4. PSoC 100ピン割り当て
+
+| ポート | 採用する割り当て（bit0から順） |
 |---|---|
-| 型番 | SN74LVC16244ADL（TI） |
-| 構成 | 16bit非反転3ステートバッファ |
-| /OE | 4bit単位、4グループ |
-| VCC | 1.65～3.6V（3.3V使用） |
-| 入力許容電圧 | 最大5.5V |
-| 伝搬遅延 | 3.3V時最大4.1ns（規定負荷条件） |
-| Ioff | 対応 |
-| パッケージ | SSOP-48 |
+| P0 | SFC D0–D7（5V） |
+| P1 | SWDIO、SWDCK、MEM A16–A21（3.3V） |
+| P2 | MEM A0–A7（3.3V） |
+| P3 | CPLD CFG0–CFG3、MODE_HILO、SPECIAL_SEL、SFC /RD、SFC /WR（5V） |
+| P4 | SFC A0–A4、DVDAC P4[5]、SFC A15、CPLD MEM_BUS_OE（5V） |
+| P5 | MEM D0–D7（3.3V） |
+| P6 | MEM A8–A15（3.3V） |
+| P12 | SD SCK、MOSI、/CS、USB VBUS検出、MEM /WE、SD MISO、MEM /CE_ROM、MEM /CE_RAM |
+| P15 | SFC /ROMSEL、/RESET、/IRQ、16T245アドレス側/OE、MEM A22、MEM /OE、USB D+、D− |
 
-| SFC信号 | 接続先 | 本数 |
-|---|---|---:|
-| A0～A4 | PSoC直接入力 | 5 |
-| A5～A11 | 3SB | 7 |
-| A12～A15 | PSoC直接入力 | 4 |
-| A16～A18 | 3SB | 3 |
-| A19 | 3SB | 1 |
-| A20～A23 | PSoC直接入力 | 4 |
-| 合計 | | 24 |
+VDDIO0/3は5V、VDDIO1/2は3.3V、VDDA/VDDDは5Vとする。CPLDから5VドメインのPSoCへ接続するSPECIAL_SELなどの3.3V出力はLVTTL入力しきい値へ設定し、実機条件を確認する。P0の8bitは5VのSFCデータ専用、P5の8bitは3.3Vの外部MEMデータ専用とする。
 
-3SBのグループ1はA6～A9、2はA10、A11、A16、A17、3はA18、A5、A19と未使用1チャネルを担当する。グループ1～3の/OEを共通化し、3.3Vへのプルアップで起動時にHigh-Zを維持する。グループ4は常時有効とし、microSDのSCK、MOSI、/CSの5V→3.3V変換に使用する。未使用入力は固定レベルに接続し、未使用出力はNCとする。SD /CSを初期High、SCKを初期Lowとするプル抵抗を設計する。MISOは3.3VのSIOへ直結する。SIOのRegulated Output ModeやVDACはこのSPI出力には使用しない。
-
-PSoCへ直接入力する13本は領域選択と通信レジスタの選択に必要となる。共通メモリバスの23本はすべてPSoCへ接続する。SFC所有時には13本をDSIから駆動し、3SB経由の11本に対応するPSoC端子はHigh-Zとする。ARM所有時には3SBを無効とし23本をARMから駆動する。
-
-## 5. GPIOの割り当て
-
-| 用途 | I/O数 |
+| 資源 | 占有 |
 |---|---:|
-| SFCアドレス直接入力 | 13 |
-| アナログ音声出力（DVDAC） | 1 |
-| SFCデータ | 8 |
-| SFC制御（/RD、/WR、/ROMSEL、/RESET、/IRQ） | 5 |
-| 外部メモリアドレス | 23 |
-| 外部メモリデータ | 8 |
-| 外部メモリ制御（/CE_ROM、/CE_RAM、/OE、/WE） | 4 |
-| 3SB /OE | 1 |
-| microSD SPI | 4 |
-| USB D+/D− | 2 |
-| USB VBUS検出 | 1 |
-| SWD | 2 |
-| 合計 | 72 |
-| 予備GPIO | 0 |
+| PSoC I/O（SIO/USBIOを含む） | 72/72 |
+| CPLD汎用I/O | 50/64 |
+| CPLD専用入力（CFG） | 4/10 |
 
-| ドメイン | 電圧 | 対応ポート | 使用数 |
-|---|---|---|---:|
-| VDDIO0 | 5V | P0、P4、P12[3:2] | 18/18 |
-| VDDIO1 | 3.3V | P1、P5、P12[7:6] | 18/18 |
-| VDDIO2 | 3.3V | P2、P6、P12[5:4]、P15[5:4] | 20/20 |
-| VDDIO3 | 5V | P3、P12[1:0]、P15[3:0] | 14/14 |
-| USBIO | 専用 | P15[7:6] | 2/2 |
+CPLD入出力50本の内訳、専用入力端子の条件、SPECIAL_SELとバスOEは[cpld.md](cpld.md)を参照する。PSoCの全物理ピンは[pinout.csv](pinout.csv)に列挙する。物理ピン・GPIO/DSI配線はPSoC CreatorおよびLatticeフィッタで検証する。
 
-| ポート | 割り当て（bit0から順） |
-|---|---|
-| P0 | SFC D0～D7 |
-| P1 | SWDIO、SWDCK、MEM A16～21 |
-| P2 | MEM A0～7 |
-| P3 | SFC A13,A14,A15,A21,A22,A23,/RD,/WR |
-| P4 | SFC A0～4、AUDIO_DAC_OUT(P4[5])、A12、A20 |
-| P5 | MEM D0～7 |
-| P6 | MEM A8～15 |
-| P12 | SD SCK、MOSI、/CS、VBUS検出、MEM /WE、SD MISO、MEM /CE_ROM、/CE_RAM |
-| P15 | SFC /ROMSEL、/RESET、/IRQ、3SB /OE、MEM A22、MEM /OE、USB D+、D− |
+## 5. 安全な出力状態
 
-/IRQはP15[2]（55番）、AUDIO_DAC_OUTはP4[5]（83番）、SFC A20はP4[7]（85番）とする。/IRQはオープンドレイン出力とする。SFC /RESETはP15[1]で入力監視し、同一端子をオープンドレインLow駆動／High-Z解放する双方向制御へ変更する方針とする（電気的条件・本体との接続は未検証）。PSoC専用XRESとは別系統であり、SFCのみの再リセット中もPSoCは動作を継続する。全100ピンは[pinout.csv](pinout.csv)を参照する。これはデータシート端子表に基づく割り当て案であり、Creatorでのピン制約・DSI適合性、SIO設定、SWD、起動時電気条件は未検証である。
+電源投入、PSoC起動前、SFCリセット保持中の回路設定、バス所有権切替中は、外部メモリの/CE・/OE・/WEを非アクティブとし、CPLD/16T245/PSoCの出力競合を防止する。
 
-## 6. 専用端子・電気条件
+PSoC P15[3]は3.3Vプルアップ付きのオープンドレインとして16T245のアドレス側/OEを駆動する。CPLD MEM_BUS_OEの非アクティブ初期値とメモリの制御信号には独立したプル抵抗を備える。CPLDのメモリ出力がHigh-ZでもSPECIAL_SELとmicroSD出力が維持されるよう、出力グループごとにOE条件を分離する。
 
-- SWDIO=P1[0]（20）、SWDCK=P1[1]（21）、専用XRES（15）を保持する。2線式SWDを選択しJTAG・SWV・Optional XRES・TRACEPORTを使用しない。P1の他の端子はメモリアドレスに使用する。VTARGは3.3V系の検出用とし、基板を別途給電する。専用XRESの入力電圧条件と初回書き込み時のデバッグ端子状態を回路図段階で確認する。
-- VDDA/VDDDは5V、VDDIO0/3は5V、VDDIO1/2は3.3V。VCCA/VCCDは内蔵レギュレータ出力で外部給電しない。VCCDの2端子接続と規定のバイパス容量をメーカー設計ガイドに従って実装する。ブースト未使用時のVSSB/VBOOST/VBAT/INDの処理も同ガイドに従う。NCは未接続。
-- P15[3]の3SB /OEはオープンドレインLowとし3.3Vへプルアップ（4.7kΩ暫定）。グループ1～3共通、4はGND固定。メモリ/CE、/OE、/WEも安全な起動状態を確保する。
-- USB専用端子P15[6:7]を保持し、P12[3]でVBUSを検出する。自己給電、逆給電防止。外部水晶用GPIOは確保せず、USB同期可能な内部クロックを利用する方針。
-- P12はSIOの通常デジタルモードを使用し、共有基準電圧・差動入力・Regulated Outputは使用しない。SPI実装方式にかかわらず配線は同一。
-- 全72 I/O使用（うちP4[5]は音声アナログ出力に転用）。SFC A19は3SB経由でMEM A19へ伝送するためPSoCへの直接入力は不要。将来の低速I/O拡張は既存SPI共有による外部拡張を検討可能だが、選択信号の確保が別途必要であり標準BOMには含めない。
+SFCの/RESETはP15[1]で入力監視とオープンドレインLow駆動/High-Z解除を行う構成とし、本体回路・CICとの電気的な整合を検証する。/IRQはP15[2]のオープンドレイン出力とする。PSoC SWDIO=P1[0]（20番）、SWDCK=P1[1]（21番）、専用XRES=15番、DVDAC=P4[5]（83番）、SFC /IRQ=P15[2]（55番）を維持する。
 
-## 7. 3SB物理端子割り当て（SSOP-48）
+## 6. PCB、接続端子、試作
 
-| グループ | 入力信号 | 入力ピン | 出力信号 | 出力ピン |
-|---|---|---:|---|---:|
-| 1 | SFC_A6 | 47 | MEM_A6 | 2 |
-| 1 | SFC_A7 | 46 | MEM_A7 | 3 |
-| 1 | SFC_A8 | 44 | MEM_A8 | 5 |
-| 1 | SFC_A9 | 43 | MEM_A9 | 6 |
-| 2 | SFC_A10 | 41 | MEM_A10 | 8 |
-| 2 | SFC_A11 | 40 | MEM_A11 | 9 |
-| 2 | SFC_A16 | 38 | MEM_A16 | 11 |
-| 2 | SFC_A17 | 37 | MEM_A17 | 12 |
-| 3 | SFC_A18 | 36 | MEM_A18 | 13 |
-| 3 | SFC_A5 | 35 | MEM_A5 | 14 |
-| 3 | SFC_A19 | 33 | MEM_A19 | 16 |
-| 3 | GND | 32 | NC | 17 |
-| 4 | SD_SCK | 30 | SD_SCK_3V | 19 |
-| 4 | SD_MOSI | 29 | SD_MOSI_3V | 20 |
-| 4 | SD_/CS | 27 | SD_/CS_3V | 22 |
-| 4 | GND | 26 | NC | 23 |
+FR-4、4層、板厚1.2mm、SFCカートリッジ互換エッジ端子を採用し、試作端子はENIGとする。金端子寸法、接触面取り、耐摩耗は実物と製造仕様で確定する。初期試作は手はんだとし、PSoC/CPLD TQFP-100、NOR TSOP-56、SRAM SOIC-32、16T245 SSOP-48、PIC SOIC-8、LDO SOT-223、音声オペアンプ SOT-23を使用する。
 
-/1OE=1、/2OE=48、/3OE=25はPSoC 56番に接続。/4OE=24はGND。VCC=7,18,31,42は3.3V。GND=4,10,15,21,28,34,39,45。
+microSDスロットはMEM2075-00-140-01-A、USBは1.2mm基板に適合する信号端子を含むスルーホールMini-Bを採用する。カード検出用GPIOは用意せずSPI初期化で有無を判定する。SWD、CPLD JTAG、PIC ICSP、電源レール、MEM /CE・/OE・/WE、OE、およびSFCバス制御を測定できるテストパッドを確保する。
 
-## 8. DSI配線予算
+## 7. 次の検証
 
-各8bitポートのDSIは入力8、出力8、動的OE用4信号を上限として設計する。バス所有権変更時にARMがドライブモードを切り替える前提での概算（SPIハードウェア時）。
-
-| ポート | DSI入力 | DSI出力 | 動的OE |
-|---|---:|---:|---:|
-| P0 | 8 | 8 | 1 |
-| P1 | 0 | 3 | 0 |
-| P2 | 0 | 5 | 0 |
-| P3 | 8 | 0 | 0 |
-| P4 | 7 | 0 | 0 |
-| P5 | 8 | 8 | 1 |
-| P6 | 0 | 4 | 0 |
-| P12 | 1 | 5 | 0 |
-| P15 | 2 | 3 | 0 |
-
-P0/P5は各8bit共通OE。P15のIRQはオープンドレインデータ制御、3SB /OEはARM制御を想定。SWD・USB専用経路、GPIO DRからの操作はDSIデータ線として加算しない。これは端子ポートあたりの経路予算であり、実際のOE割り当て、データパス共有経路、DSI全体の配線及び端子間遅延はCreatorで検証する。
-
-
-## 9. 試作PCB・コネクタ・製造条件（2026-11-17）
-
-- **PCB**: SFCカートリッジ互換外形のFR-4・**4層・板厚1.2mm**。エッジ端子はENIGで試作する方針とし、金端子パターンの寸法・接触位置・先端面取りは実物カートリッジと製造先の設計ルールで確定する。開発版は基板のみで動作確認し、ケースは後日外注を検討する。
-- **部品実装**: 初期試作は手はんだ。リード端子が露出したTQFP-100、TSOP-56、SOIC-32、SSOP-48、SOIC-8、SOT-223、SOT-23を使い、DFN/QFN/WSON/BGA等の底面電極パッケージを避ける。抵抗・小容量MLCCは0805、4.7/10µFは1206、47µFは1210を使用する。
-- **USB**: USB 2.0 Full-Speedの**Mini-B（5ピン、信号端子と固定脚はスルーホール希望）**。正式型番は未確定。USB D+/D−に22Ω各1、USBLC6-2SC6でESD保護し、VBUSはSFC 5Vと直結しない。P12[3]の検出回路は10kΩ/100kΩを候補とする。
-- **microSD**: GCT **MEM2075-00-140-01-A**を第一候補とする。水平型SMT・プッシュプッシュ式・位置決めペグ付き。カード検出スイッチはGPIOが残っていないため未使用とし、SPI初期化の応答でカード有無を判定する。CLK/MOSI//CSは既存3SBの3.3V出力、MISOは3.3V SIOへ直結する。ESD保護の候補はリード付きSOT-23-6のUSBLC6-4SC6。
-- **デバッグ/製造検査**: PSoCのSWDIO、SWDCLK、XRES、VTARG(3.3V)、GND、PICのICSPDAT、ICSPCLK、MCLR/VPP、VDD、VSSにテストパッドを設ける。加えて5V、3.3V、SRAMバックアップ電源、NOR/SRAMのCE/OE/WE、3SB /OEなどを測定可能にする。
-- **ケースとの整合**: ケースは初期試作では不要。ただしPCB外形、固定穴、エッジ端子、電池ホルダーおよびUSB・microSDの位置/向き/部品高さをケース想定寸法に合わせ、将来は市販SFC互換ケースへの開口加工または外注3Dプリントを選択する。
-
-これらは部品の選定・試作方針であり、コネクタ実装寸法、PSoC Creatorの配置配線、バスと電源の電気特性および回路図の完成を意味しない。部品表・数量別価格は[production.md](production.md)、電源部品は[power-cic.md](power-cic.md)を参照する。
-
-## Rev.0.7音声出力・アドレス配線変更
-
-P4[5]（TQFP-100 83番）をAUDIO_DAC_OUTに割り当て、SFC A19は74LVC16244の第3グループ（入力33番、出力16番）を利用してMEM A19へ直接接続する。第3グループ/3OEは従来どおりSFC/ARMバス所有権で制御し、ARM所有時にはP1[5]からMEM A19を駆動する。ROMの上位変換対象はA20～A22とする。SRAM A16につながるMEM A19は変換せず常にSFC A19を使用する。
-
-P4[5]のDVDACアナログ経路はCreator実配置未確認。SFCの外部音声端子31(L)/62(R)へMCP6001T-I/OTを使う5Vバッファ・LPF・AC結合・左右別出力抵抗を経由してモノラル信号を分配する。DVDACは1Vレンジを検討し、10bit・32kHzを初期評価目標、12bitは低帯域評価モードとする。音声部品追加後の数量・価格は再見積もりが必要。[audio.md](audio.md)を参照。
+CPLDの論理合成で64マクロセル、50汎用I/Oへの収容と端子OEの実現性を確認する。特にROM/CE・/OE・データ返却を含む120ns FastROM、SRAM書込みタイミング、MEMとSFC Dの電気的競合、SFC信号の3.5V HIGH条件、microSD 5V/3.3V変換、PSoC CreatorのDVDAC・FIFO・DSI制約を検証する。
