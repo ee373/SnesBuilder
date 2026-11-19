@@ -17,7 +17,7 @@ Rev.0.8 / 2026-11-19。HiROM・ExHiROM・LoROM・ExLoROMへの対応、NORへの
 | 消去 | 64KiB均一セクタ（モデル02） |
 | パッケージ | TSOP-56 |
 
-NORにはゲームプログラム、ARM用プログラム、画像・音源などのリソースを格納する。SFC側BIOS本体はPSoC内蔵Flashに保持し、起動時に外部SRAMへ展開する。ROMアクセスの/CE・/OE・アドレスはCPLDが生成し、データはSN74LVC16T245を介してSFCへ返す。NORへの消去・書込み時はARMが共通MEMバスを所有する。
+NORにはゲームプログラム、ARM用プログラム、画像・音源などのリソースを格納する。SFC側BIOS本体はPSoC内蔵Flashに保持し、起動時に外部SRAMへ展開する。ROMアクセスの/CE・/OE・アドレスはCPLDが生成し、データはSN74LVC8T245を介してSFCへ返す。NORへの消去・書込み時はARMが共通MEMバスを所有する。
 
 x8モードのBYTE#、DQ15/A-1、アドレス線と実パッケージ端子との対応、およびNOR書込み用/WE・RESET#・WP#/ACCは回路図とメーカー資料で確定する。
 
@@ -97,7 +97,7 @@ uint32_t sram_bus_address(uint32_t addr) {
 
 32KiBウィンドウを使用し、$70–$7D/$F0–$FF:$0000–$7FFFを基本とする。SRAM物理A0–A14にSFC A0–A14、物理A15–A16にSFC A16–A17を割り当てる。そのため、CPLDがMEM A16=SFC A13、MEM A17=SFC A14、MEM A18=SFC A16、MEM A19=SFC A17を出力する。SRAMサイズ設定により小容量セーブ領域のミラーが必要なゲームについては、ローダ/SDKの規則を定義する。
 
-SRAM選択時にはNORの/CEを非アクティブにし、SFC側/RD・/WRからCPLDが適切な/OE・/WEを生成する。書込みセットアップ、終端ホールド、データ方向切替は[bus-udb.md](bus-udb.md)および[cpld.md](cpld.md)を参照する。
+SRAM選択時にはNORの/CEを非アクティブにし、SFC側/RD・/WRを5V→3.3V変換してAG256が適切な/OE・/WEを生成する。ARM所有時もメモリ制御の出力源はAG256のみとする。書込みセットアップ、終端ホールド、データ方向切替は[bus-udb.md](bus-udb.md)および[cpld.md](cpld.md)を参照する。
 
 ## 4. $5000通信とブート応答の領域
 
@@ -114,12 +114,12 @@ SRAM選択時にはNORの/CEを非アクティブにし、SFC側/RD・/WRからC
 | $00:8002 | $60 | ジャンプ先中位 |
 | $00:8003 | $2F | ジャンプ先バンク |
 
-SFCはリセット解除後に$00:8000の`JML $2F6000`を実行する。BOOT_MODE中は$00:8xxx/$00:FxxxをCPLDがブート候補として扱い、PSoCが下位アドレスを判定して6バイトのみに応答する。同じサイクルにNORは非選択、16T245データ側はHigh-Zとする。対象候補ウィンドウ内のそれ以外のアドレスを読まないことをBIOS/起動シーケンスで保証する。
+SFCはリセット解除後に$00:8000の`JML $2F6000`を実行する。BOOT_MODE中は$00:8xxx/$00:FxxxをCPLDがブート候補として扱い、PSoCが下位アドレスを判定して6バイトのみに応答する。同じサイクルにNORは非選択、8T245データ側はHigh-Zとする。対象候補ウィンドウ内のそれ以外のアドレスを読まないことをBIOS/起動シーケンスで保証する。
 
 $2F:6000–$2F:7FFFは起動時のHiROM系SRAM窓として常に利用でき、物理SRAM末尾8KiBへ対応する。ゲームがLoROM系でも起動直後はBIOS窓を維持し、WRAM実行コードからゲームモードへ遷移する。BOOT_MODE解除後に通常ROMを有効化し、SRAM実行中のBIOS窓の有効状態は必要な期間維持する。
 
 ## 5. タイミング契約と検証
 
-SFC ROMアクセスの最長経路はSFCアドレス/CPLDデコードからNOR 70ns、16T245、SFC入力までである。/CE起点70nsと/OE起点15nsを、実際の信号到着時刻を使って比較する。CPLD 7.5nsの製品値だけでFastROM達成とは扱わず、全出力の負荷・ピン配線後のSTAと実機測定を完了条件とする。
+SFC ROMアクセスの最長経路はSFCアドレス→74LVC245A→AG256デコード→NOR 70ns→8T245→SFC入力である。SFC A5–A12→LVC245A #1→MEM A5–A12の別経路も評価する。/CE起点70nsと/OE起点15nsを、実際の信号到着時刻を使って比較する。AG256の素子遅延だけでFastROM達成とは扱わず、フィッティング後のSTAと実機測定を完了条件とする。
 
 [hardware.md](hardware.md)、[cpld.md](cpld.md)、[firmware.md](firmware.md)、[rom-compatibility.md](rom-compatibility.md)を関連する正本とする。
