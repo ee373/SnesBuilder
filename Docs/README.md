@@ -24,6 +24,7 @@ HiROM、ExHiROM、LoROM、ExLoROMを対象とし、128KiB～8MiBの2冪7段階�
 | [cpld.md](cpld.md) | AG256の54 I/O予算、6個の8bit変換IC、DIR/OE、SFC/MEMの配線契約 |
 | [pinout.csv](pinout.csv) | PSoC TQFP-100全端子の再配置（使用71/72本） |
 | [cpld-pinout.csv](cpld-pinout.csv) | AG256 LQFP100の物理54 I/O候補 |
+| [verify_rev08_interfaces.py](verify_rev08_interfaces.py) | 100/54ピン配置と7段階容量マスクの静的チェック |
 | [memory.md](memory.md) | NOR、SRAM、4種類のROM形式、7段階容量マスク、非2冪容量の事前展開、ブート6バイト |
 | [bus-udb.md](bus-udb.md) | 排他バス所有権、CPLD High-Z、UDB通信、STA条件 |
 | [communication.md](communication.md) | $5000通信、FIFO、DMA、SFC/ARM協調、音源・USB実行時通信 |
