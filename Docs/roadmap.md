@@ -50,7 +50,7 @@ Rev0.8 / 2026-11-19。採用構成はPSoC CY8C5287AXI-LP095、CPLD LC4064V-75TN1
 ## 4. フェーズ3：実機試作
 
 - [ ] 4層・1.2mm FR-4、ENIG端子、手はんだ可能なTQFP/SSOPの回路図とPCBを完成させる。
-- [ ] LPC4064VのJTAG、PSoCのSWD、PICのICSPを試作・検査用に引き出す。
+- [ ] LC4064VのJTAG、PSoCのSWD、PICのICSPを試作・検査用に引き出す。
 - [ ] NOR/SRAMの通常読出し・書込みとSFC/ARM所有権変更を測定する。
 - [ ] HiROMとLoROMで上位アドレスを切り替え、ExHiROMとExLoROMの4MiB境界を検証する。
 - [ ] $5000通信の特殊領域デコード、ARM MEM所有中のFIFO継続、6バイトブート応答を確認する。
