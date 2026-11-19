@@ -1,114 +1,101 @@
 # バス調停・UDB・アクセスタイミング
 
-Rev.0.7 / 基本設計段階
+Rev.0.8 / 2026-11-19。CPLDがSFC側の非同期メモリバスを制御し、PSoC UDBはSFC通信・FIFO・所有権ハンドシェイクを担当する。
 
-## 1. バス所有権
+## 1. SFCとARMのメモリバス所有権
 
-NORとSRAMは共通バスを使用し、SFCとARMの同時外部メモリアクセスは行わない。SFC所有中はUDBと3SBによる非同期メモリインターフェースを使用する。ARMは内部SRAMで並行動作できる。
+NORとSRAMは23bitアドレス/8bitデータの共通MEMバスを使用する。このバスをSFCとPSoC ARMが同時に駆動することは許可しない。所有権はPSoCのFSMが管理し、SFC側はWRAMに展開した切替コードから要求と完了を確認する。
 
-| 信号 | SFC所有時 | ARM所有時 |
-|---|---|---|
-| 3SB /OE | Low | High |
-| 3SB出力 | 有効 | High-Z |
-| MEM_A0～A4、A12～A15、A19～A21 | UDB出力 | ARM出力 |
-| MEM_A5～A11、A16～A18 | PSoCデジタル入力（High-Z） | ARM出力 |
-| MEM_A22 | UDB出力 | ARM出力 |
-| 共通メモリバス | SFCが使用 | ARMが使用 |
+| 信号 | SFC所有 | 隔離中 | ARM所有 |
+|---|---|---|---|
+| CPLD MEMアドレス15出力 | 有効 | High-Z | High-Z |
+| 16T245第2グループ（SFC A5–A12） | B→A有効 | High-Z | High-Z |
+| PSoC MEM A0–A22 | High-Z | High-Z | GPIO駆動 |
+| CPLD MEM /CE・/OE・/WE | 有効 | High-Z | High-Z |
+| PSoC MEM /CE・/OE・/WE | High-Z | 非選択/High-Z | GPIO駆動 |
+| 16T245第1グループ（SFC⇄MEMデータ） | アクセス種別による | High-Z | High-Z |
+| PSoC MEM D0–D7 | High-Z | High-Z | 入出力 |
+| PSoC SFC P0 D0–D7 | 通信/ブート時に入出力 | 通信可 | 通信可 |
+| CPLD SPECIAL_SEL | 有効 | 有効 | 有効 |
 
-ARMは3SB出力を無効化した上で23bitすべてを出力し、NORの全物理アドレスと、変換後のSRAMアドレスへアクセスする。
+所有権切替で**SPECIAL_SELは無効にしない**。ARMがMEMバスを使用している間でも、PSoCの独立した5V SFCデータポートP0[7:0]から$5000通信へ応答できる。SFCはARM所有中、ROMから命令をフェッチしないようWRAMコードを実行し、カートリッジROMを参照するIRQ/NMI/DMAを停止する。
 
-所有権切り替え時は/CE、/OE、/WEを無効化し、双方の出力を同時に有効化しないようにする。3SB /OEにプルアップを設け、電源投入直後やPSoC初期化中はHigh-Zを維持する。
+## 2. ハードウェア切替ハンドシェイク
 
-ARMが外部メモリを所有する間、SFCは内部WRAM上のプログラムを実行する。カートリッジROMを参照する割り込みやDMAを禁止する。必要な通信レジスタは外部メモリの所有権に依存せず利用できるよう設計する。
+UDBとARMファームウェアは、少なくともSFC所有・隔離・ARM所有を明確に区別する。Rev0.8ではISO → QUIET → CONFIG → GUARD → OWNERという保護シーケンスを設計契約とし、細部のクロック数はPSoC Creatorと実機のHigh-Z実測で決定する。
 
-BUS_MODEの2bitは00=SFC所有、01/10=隔離、11=ARM所有とし、00→01→11および逆順で切り替える。切替主体はARMファームウェアであり、SFCの合意とアクセス完了を待ち、隔離状態で/CE、/OE、/WEを全て無効化して必要なHigh-Z待ち時間を確保し、PRTx_BYP・ドライブモードを変更する。ARMストローブも所有権変更前に無効化する。SFCはROMを参照するIRQ/NMIをマスク・停止し、カートリッジDMAも禁止してWRAMコードを実行する。ARM所有・隔離中もPSoCへの直接入力A0～A4、A12～A15、A20～A23と制御信号により$5000通信を維持する。SFC A19は3SB経由のMEM A19接続であり、$5000通信のデコードには使用しない。ARM→SFC IRQはSFC所有時のみ許可し、pendingを保持して返却後に通知する。
+1. SFCがWRAM実行へ移り、$5000 BUS_CONTROLからメモリ引渡しを要求する。
+2. ARMは新規NOR/SRAMアクセスを停止し、進行中トランザクションの終了を確認する。UDBはSFC側とARM側のメモリストローブを禁止する。
+3. PSoCはCPLD MEM_BUS_OEを無効側へ、16T245の第1・第2グループ/OEを非アクティブへ変更し、CPLD MEMアドレス/制御とデータ側を隔離する。
+4. 外部メモリの/CE・/OE・/WEが非アクティブで、出力無効化に必要な待ち時間が経過した後、PSoCのMEM GPIOドライブモード/PRTx_BYPを変更する。
+5. ARM所有を許可し、SFCに$5000のSTATUS/REPLYで通知する。返却時はPSoCのMEM出力を無効化してからCPLDと16T245を再有効化する。
 
-## 2. UDB実装機能
+同じノードにCPLDとPSoCの出力が接続されるため、**両方の駆動を同時に有効にする瞬間を作らない**。SFCはバス待ち状態をハードウェアで挿入できないため、アクセスサイクル中にARM割り込みだけで即時退避させる方式は採用しない。ROM/SRAMに対するSFCアクセス開始前に所有権を確保する。
 
-| 機能 | 内容 |
+## 3. SFC側のアクセス種別と制御
+
+| アクセス | ROM /CE | SRAM /CE | 16T245第1グループ | PSoC P0 |
+|---|---|---|---|---|
+| NOR読出し | 有効 | 無効 | A→B（MEM→SFC） | 入力 |
+| SRAM読出し | 無効 | 有効 | A→B（MEM→SFC） | 入力 |
+| SRAM書込み | 無効 | 有効 | B→A（SFC→MEM） | 入力 |
+| $5000読出し | 無効 | 無効 | High-Z | 出力 |
+| $5000書込み | 無効 | 無効 | High-Z | 入力 |
+| ブート固定値読出し | 無効 | 無効 | High-Z | 出力 |
+| ARM所有 | CPLD側High-Z | CPLD側High-Z | High-Z | 通信に使用可能 |
+
+SFC側読出し時、MEM /OEは選択メモリへの読出しを許可し、NOR/SRAMのデータが有効になる前に16T245のDIRと/OEが安定するよう設計する。SRAM書込み時は16T245がB→Aに切り替わった後にMEM /WEをアサートし、書込み終了後にMEMデータが保持される時間を保証する。NOR書込みはARM所有時にのみ実行し、PSoCが制御信号を駆動する。
+
+メモリの/CE・/OE・/WEに非アクティブ状態を保証するプルアップを設ける。SRAMのCE2は電圧監視による保持制御を併用し、電源喪失時の誤書込みを防ぐ。
+
+## 4. CPLDとPSoCの特殊領域処理
+
+CPLDはROM/SRAMを高速にデコードすると同時に、システムバンクの$5000–$5FFFとBOOT_MODE中の$00:8xxx/$00:Fxxxに対してSPECIAL_SELを出力する。SPECIAL_SELは3.3V出力のまま5V VDDIO3のPSoC P3[5]へ入力し、PSoC側LVTTLしきい値で受ける。
+
+PSoCはSFC A15（P4[6]）によりSPECIAL_SELを分類する。A15=0なら通信レジスタ、A15=1なら固定値ブート候補である。通信レジスタ選択にはSFC A0–A4（P4[0:4]）を使う。ブート候補はSFC所有時のMEMアドレス入力から下位・中位ビットを読み、$00:8000–8003/$00:FFFC–FFFDの6バイトに限定する。
+
+特殊領域ではCPLDがNOR/SRAMの/CEおよび16T245第1グループ/OEを無効化する。PSoCはSFC P0だけで応答し、MEM P5の使用状態を変更しない。BOOT_MODE中もBIOS用$2F:6000–$2F:7FFFのSRAM窓は使用可能にする。ARM所有中の通信はBOOT_MODE解除後の$5000領域を対象とする。
+
+## 5. PSoC UDBの担当機能
+
+| 機能 | 実装主体 |
 |---|---|
-| ROMアドレス変換 | HiROM・ExHiROM切替と1MiB単位の組み合わせ論理ミラーリング |
-| ROM・SRAMデコード | 個別のメモリ領域判定 |
-| レジスタデコード | ARM通信レジスタ選択 |
-| 制御信号 | /CE、/OE、/WE |
-| データバス | 双方向の方向切り替え |
-| バス調停 | SFC・ARMの所有権管理 |
-| ARM通信 | 32アドレス、初期12レジスタ（communication.md参照） |
-| 割り込み | UDB→ARM NVIC、ARM→SFCオープンドレイン/IRQ |
-| FIFO | 双方向、各方向4バイトの専用データパスFIFOを標準機能とする |
-| アドレスカウンタ・DMA支援 | 高速転送機能として検討 |
-| microSD SPI | UDBまたはARMによる実装 |
+| ROM/SRAM高速アドレス変換と/CE・/OE・/WE | CPLD |
+| バス所有権の状態機械とARMの構成ACK | PSoC UDB＋ARMファームウェア |
+| $5000の32アドレス（実装12、予約20） | PSoC UDB |
+| ブート固定6バイトの応答 | PSoC UDB |
+| SFC⇄ARMメールボックスと割り込み | PSoC UDB＋ARM |
+| 双方向4byte FIFO | UDBデータパスF0/F1など |
+| DMA・CDC・連続転送制御 | PSoC UDB＋DMA |
+| microSD SPI | PSoC UDBまたはARMソフトウェア、電圧変換はCPLD |
+| SFC追加音声 | PSoC DAC/DVDAC＋DMA |
 
-SFCのROM・SRAMアクセスにはARMを介在させず、非同期の組み合わせ論理を使用する。コマンド通信やFIFOなどのクロックドメイン間通信には適切な同期処理を実装する。
+SFC側レジスタの/RDや/WRはPSoC P3[6:7]へ直接接続する。特殊領域のデコードはCPLDのSPECIAL_SELとSFC A15/A0–A4の組合せを利用する。F0/F1を使用するFIFOはARM/DMA側のクロックドメインとSFC側の非同期リード/ライトを、ラッチとトグル/ACK同期などで接続する。
 
-UDBは24個、PLDは48個、マクロセル192個、データパス24個という構成を前提とする。Rev.0.7全体の設計予算はSPIを除き34～40 PLD、110～127マクロセル、191～230積項、データパス2個とする。詳細は[udb-evaluation.md](udb-evaluation.md)を参照する。実際の消費量はPSoC Creatorの論理合成と配置配線で確認する。基本メモリ・通信・双方向FIFOを優先し、SPIは残存資源に応じてUDBまたはARMソフトウェアで実装する。
+UDB資源予算は高速ROMのデコード論理を除いたRev0.8用に再算定する。[udb-evaluation.md](udb-evaluation.md)を参照する。48 PLDの実合成利用率およびPSoC Creatorの配置は未検証である。
 
-## 3. GPIOバイパス
+## 6. タイミング制約
 
-PRTx_BYPレジスタを使用し、GPIO出力元をDSIとポートデータレジスタ（PRTx_DR）で切り替える。SFC所有時にはUDB・DSI、ARM所有時にはポートレジスタから直接出力する。専用MUXを各アドレスビットへ配置する必要を減らす。
+FastROMの要求はカートリッジ側アクセス120ns以内、SlowROMは200ns以内を目標とする。現行選定NORのランダムアクセスは最大70ns、SRAMは45nsである。最長経路は単にNORの70nsではなく、次の最大値で判定する。
 
-出力元、ドライブモード、High-Z、およびメモリ制御信号の切り替え順序を詳細設計で確定する。
-
-## 4. データバス
-
-SFC側8bitとメモリ側8bitのデータをPSoCで中継する。
-
-- SFCからROM/SRAMを読み出す場合は、メモリからSFCへデータを伝達する。
-- SFCからSRAMへ書き込む場合は、SFCからメモリへ伝達する。
-- 通信レジスタへのアクセス時はUDBのレジスタとSFC側データバス間でデータを受け渡す。
-- 未選択時はSFC側のデータ出力をHigh-Zに維持し、バス競合を防止する。
-
-## 5. SFCメモリアクセスタイミング
-
-| 項目 | SlowROM | FastROM |
-|---|---:|---:|
-| マスタークロック数 | 8 | 6 |
-| NTSCバスサイクル | 約372.5ns | 約279.4ns |
-| 任天堂開発資料のアクセス要求 | 200ns未満 | 120ns未満 |
-| 要求区分 | 必須 | ストレッチ目標 |
-
-MEMSEL（$420D bit0）でFastROMを選択する。8MiB ExHiROMでは物理ROM前半4MiBが高速アクセス対象であり、後半はSlowROMとなる。HiROMおよび容量ミラー時の速度は物理アドレスではなくCPU側バンクとMEMSELに依存する。ROMアクセス時間25%短縮（単独アクセス回数33.3%増）だがWRAM、SRAM、DMA、ARM処理速度は変わらない。SFC側の処理時間のうち対象ROMアクセスが30%の場合、全体時間は7.5%短縮、性能は約8.1%向上する（直列処理の仮定）。初期試作はSlowROMを確実に動作させ、配置配線最適化によりFastROMを目指す。高速化専用ICは標準構成に追加しない。
-
-| 経路 | 設計予算 |
-|---|---:|
-| PSoC往路（アドレス・CE） | 25ns（仮定） |
-| 外部3SB | 4.1ns（仕様値、条件付き） |
-| NORランダム / ページ | 70ns / 15ns |
-| SRAM | 45ns |
-| PSoCデータ復路 | 30ns（仮定） |
-| 設計余裕 | 10ns |
-
-| 条件 | 概算 | 必須目標 |
-|---|---:|---:|
-| NORランダム | 135ns | 200ns未満 |
-| NORページ内（規定条件） | 80ns | 200ns未満 |
-| SRAM | 110ns | 200ns未満（120nsを目標） |
-| SRAM往路35ns・復路35ns | 125ns | 200ns未満 |
-| 通信レジスタ | 25～50ns程度（仮定） | 120ns未満 |
-
-$6000～$7FFFは8マスタークロック、$5000～$5FFFは6マスタークロックでMEMSELに依存しない。通信領域は高速応答必須である。DMAは8マスタークロック/byte（約2.68MB/s）。数値は比較用の設計予算でありSTA・実測ではない。アドレス、/CE、/OEそれぞれの到達時間にtACC/tCE/tOEを加えた最大値からNOR出力確定を求め、復路遅延とセットアップを加える。/CEは/RDを待たず先行選択、/OEは/RDで有効化する。/WEパルス幅、データセットアップ/ホールド、出力High-Z、競合、ページ条件を検証する。
-
-## 6. UDBとGPIOの速度・設定
-
-メーカーCY8C52LPデータシートでは特定16bitタイマー・加算器・CRC/PRS・2段PLDの動作周波数67.01MHz、外部クロック入力から出力の例がtyp.20ns、規定25℃条件max.25ns、最悪配線条件のmax.55nsとされる。GPIO高速出力の周波数は33MHz（規定負荷条件）。これらは非同期GPIO間伝搬遅延と同一ではない。AN81623によればDSIスイッチ1個の遅延は約1～2ns。PSoC 3のSTA例Figure 40では22.883ns（マクロセル1.250ns、DSI 5.433ns、GPIO出力16.200ns）である。PSoC 5LP実機への保証値ではない。
-
-アドレス、両データバス、/ROMSEL、/RD、/WRはTransparent入力、出力同期なしとし、メモリ経路を非同期にする。コマンド通知は別途CDCを行い、同期FIFO及びコマンド回路は40MHz程度、SPIは10～20MHz程度を候補とする。ARMは最大80MHz。CreatorでTDP/TDR、DSI、端子間遅延を確認する。[references.md](references.md)参照。
-
-## 7. デコード仕様
-
-```verilog
-wire io_sel = ~a22 & ~a15 & a14 & ~a13 & a12 & extension_enable;
-wire ram_sel = ~a22 & ~a15 & a14 & a13 &
-               ((a21 & hi_enable) | (a23 & ex_enable));
-wire rom_sel = ~romsel_n;
-// MEM_A20～A22のROM変換とMEM_A19の固定配線はmemory.mdを参照。
-wire [4:0] reg_addr = a_lo;
+```text
+NOR valid ≈ max(
+    SFC_ADDR_to_NOR_ADDR + tACC,
+    SFC_ROMSEL_to_NOR_CE + tCE,
+    SFC_RD_to_NOR_OE + tOE
+)
+SFC_data_valid ≈ max(NOR_valid, 16T245_data_OE_valid)
+                 + 16T245_data_propagation
 ```
 
-上記は選択条件の抜粋であり、実際の出力にはバス所有権、リセット、/RD、/WR、出力許可を組み合わせ、ROM/SRAMの同時選択を禁止する。SFCからNORへの書き込みは禁止し、ARM所有時にのみNOR書き込みを許可する。SRAMの物理アドレス変換は固定配線で行い、追加のPLDは使用しない。
+NORのtACC/tCEは最大70ns、tOEは最大15nsである。CPLDの製品速度グレード7.5nsは論理経路の上限値を一律に保証する数値ではないので、Latticeの配置配線後のパス遅延を使う。MEMアドレスのA5–A12が16T245を経由する経路とCPLD経由の経路は別々に評価する。
 
-1MiB ROMミラーリングによる上位アドレス経路とFIFO読み出しMUXの追加遅延は上記設計予算に含まれていないため、STAで再評価する。通信レジスタ・FIFO先頭データは/RDの前に準備し、読み出し後に次のバイトへ進める。
+SRAM書込みではSFCデータ→16T245→MEM DとCPLD /WEの到着差、書込みセットアップ/ホールド、ARM切替時のHigh-Z時間を調べる。$5000のレジスタアクセスには通信ウィンドウに割り当てられるSFCバス時間に対してSPECIAL_SEL→UDB出力→P0の遅延を評価する。
 
-## Rev.0.7のバス変更
+## 7. 実装検証
 
-SFC A19は74LVC16244第3グループの経路（入力33→出力16）を介してMEM A19へ接続する。MEM A19はホスト所有時にこのバッファが駆動し、ARM所有時はP1[5]のGPIOで駆動する。既存の/3OE切替順序とHigh-Z保持を維持する。ROM容量別変換はA20～A22の3bitのみとする。A19の配線変更による3SB伝搬遅延とNOR/SRAM書込・読出しタイミングはCreator STAおよび実機で再評価する。DVDACのタイマー・DMAの使用と既存FIFO/USBとの競合も検証事項とする。
+- Lattice論理合成、マクロセル・積項・リソース配分、OEごとのフィッタ検証。
+- CPLDと16T245の全信号に対するバス所有権遷移と出力競合のテストベンチ。
+- PSoC CreatorによるP0/P5の入力/出力切替、DSI・FIFO・CDC・IRQ、SWD、DVDACの配置検証。
+- 70ns NORと45ns SRAMの最悪タイミング条件、FastROM 120ns、SlowROM 200nsの実測。
+- 電源投入前後のプルアップ、SRAM保持、16T245制御ピンの3.3V適合性、SFCデータ信号のHIGH電圧適合性。

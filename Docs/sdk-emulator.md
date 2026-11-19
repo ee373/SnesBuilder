@@ -1,6 +1,6 @@
 # SDK・開発ツール・エミュレータ
 
-Rev.0.7 / 基本設計段階
+Rev.0.8 / 基本設計段階
 
 ## 1. ツールチェーン
 
@@ -22,11 +22,11 @@ SFC Toolchain           ARM GCC Toolchain
       Emulator      SFC Hardware
 ```
 
-ARMにはarm-none-eabi系ツールチェーン、SFC側にはExHiROMに対応する65C816用コンパイラ・アセンブラ・リンカを使用することを想定する。
+ARMにはarm-none-eabi系ツールチェーン、SFC側にはHiROM・ExHiROM・LoROM・ExLoROMに対応する65C816用コンパイラ・アセンブラ・リンカを使用することを想定する。
 
 ## 2. SDKの共通機能
 
-SFC側の通信アドレスは$00:5000～$00:501Fとし、割り込み・ポーリングを提供する。FastROM対応時は実行コードを物理ROM前半4MiBへ優先配置できるリンカ設定を用意する。SlowROMを必須とする。共通APIを定義し、開発者がUDBの内部構造やGPIOの詳細を理解せずに利用できるようにする。
+SFC側の通信アドレスは$00:5000～$00:501Fとし、割り込み・ポーリングを提供する。SlowROMを基本サポートとし、FastROMの120nsの実機条件が確認できた後に、FastROM指定のビルド設定を用意する。ROMバンク配置はローダが生成するNOR物理配置と一致させる。共通APIを定義し、開発者がCPLD/UDBの内部構造やGPIOの詳細を理解せずに利用できるようにする。
 
 - ARMへのコマンド、ステータスと応答の取得。
 - 共有SRAMアクセス、メモリバス所有権制御。
@@ -40,7 +40,7 @@ SFC側の通信アドレスは$00:5000～$00:501Fとし、割り込み・ポー�
 
 ## 3. エミュレーション方針
 
-実機とPCエミュレータで同一のゲームパッケージを利用する。エミュレータではHiROM・ExHiROM切替およびROMミラーリング、独自通信レジスタ、ARM、共有SRAM、双方向FIFO、共通BIOS APIを再現する。PSoCの物理回路をすべて再現するのではなく、ゲームから観測できる外部仕様を互換実装する。
+実機とPCエミュレータで同一のゲームパッケージを利用する。エミュレータではHiROM・ExHiROM・LoROM・ExLoROMのアドレス変換とローダ事前ミラー配置、独自通信レジスタ、ARM、共有SRAM、双方向FIFO、共通BIOS APIを再現する。PSoCの物理回路をすべて再現するのではなく、ゲームから観測できる外部仕様を互換実装する。
 
 Cortex-M3命令実行にはUnicorn EngineなどのCPUエミュレーションライブラリを候補とし、ARM用ネイティブバイナリを実行する。仮想BIOS APIを介してメモリや通信機能を提供し、SFCエミュレータとの間でコマンド通信、処理時間を考慮した同期を実装する。
 
@@ -80,7 +80,7 @@ PCまたはRaspberry Pi上の既存SFCエミュレータでゲーム、マッパ
 
 ## 6. 初期開発環境をHiROMから開始する方針（2026-11-17）
 
-第一段階は、既存の公開SDK **PVSnesLib** によって作成した通常の **HiROM / SlowROM** イメージを、SFCBuilderのNORからSFC実機で起動することとする。ARM拡張・BIOS・ゲームパッケージを完成させる前に基本ROMアクセスを検証する。HiROM・ExHiROM切替はRev.0.7のハードウェア仕様に含め、ExHiROMの開発環境対応は後続段階とする。
+第一段階は、既存の公開SDK **PVSnesLib** によって作成した通常の **HiROM / SlowROM** イメージを、SFCBuilderのNORからSFC実機で起動することとする。ARM拡張・BIOS・ゲームパッケージを完成させる前に基本ROMアクセスを検証する。Rev0.8のハードウェアは4種類のROM形式を対象とするが、最初のソフトウェア検証はHiROMから開始し、ExHiROM・LoROM・ExLoROM向けツールチェーン対応を段階的に確認する。
 
 ### 公開ツールチェーンと既知の課題
 
@@ -91,10 +91,10 @@ PCまたはRaspberry Pi上の既存SFCエミュレータでゲーム、マッパ
 ### 最初のHiROMテスト
 
 1. PVSnesLibの既存サンプルをHiROM / SlowROMとしてビルドし、PCエミュレータで文字表示・入力を確認する。
-2. 初回の小容量テストには512KiBのHiROM / SlowROMイメージを使用できる。ビルド設定例はHIROM=1、FASTROM=0、ROMBANKS=8（64KiB×8）、ROMSIZE=09、セーブなしならSRAMSIZE=00とする。PVSnesLibの使用リビジョンを固定し、ROMファイルの先頭に512バイトのコピー用ヘッダがないことを確認する。NOR書き込み前には元ROMのミラー規則に従い1MiBへ複製する。
-3. SFCBuilder側はEXHIROM_ENABLE=0、ROM_BLOCKS_M1=0（物理1MiB）、通常ゲーム用の通信・拡張レジスタデコードを必要に応じて無効化し、SFCバス所有・SlowROMに設定する。複製イメージの物理オフセット$00FFC0はHiROMヘッダ、$00FFFCはゲームのリセットベクタに対応する。
-4. ROMをNORへ書き込む最小限の手段を準備する。microSDローダやARMゲームパッケージの完成は初期要件に含めない。起動時はPSoCがSFC /RESETを再アサートして保持し、内蔵Flashから外部SRAM末尾8KiBへ最小限のSFC側BIOSを展開する。BOOT_MODE中にUDBがリセットベクタと`JML $2F6000`を固定応答し、BIOSが$5000通信でBOOT_MODEを解除してから、WRAM上の切替ルーチンを介してNORのゲームリセットベクタへ移行する。CIC認証、バス安全状態、NOR読出制御も検証する。
-5. 実機起動後は異なるHiROMバンクに配置したデータを読み出し、上位アドレス線、ミラーリング、SlowROMのアクセス時間を検証する。
+2. 初回の小容量テストには512KiBのHiROM / SlowROMイメージを使用できる。ビルド設定例はHIROM=1、FASTROM=0、ROMBANKS=8（64KiB×8）、ROMSIZE=09、セーブなしならSRAMSIZE=00とする。PVSnesLibの使用リビジョンを固定し、ROMファイルの先頭に512バイトのコピー用ヘッダがないことを確認する。NOR書き込み前には元ROMのミラー規則に従い、選択したHiROM物理配置の必要なスロットにデータを複製する。
+3. SFCBuilder側はCPLDのHiROM系モード、通常4MiB窓とSFCバス所有、SlowROM設定を選択し、ゲーム実行時の通信拡張の有無を設定する。NOR上の物理オフセット$00FFC0にはHiROMヘッダ、$00FFFCにはゲームのリセットベクタが存在するようにイメージを配置する。
+4. ROMをNORへ書き込む最小限の手段を準備する。microSDローダやARMゲームパッケージの完成は初期要件に含めない。起動時はPSoCがSFC /RESETを再アサートして保持し、内蔵Flashから外部SRAM末尾8KiBへSFC側BIOSを展開する。BOOT_MODE中にCPLDがNORを非選択とし、PSoC UDBがリセットベクタと`JML $2F6000`を固定応答し、BIOSが$5000通信でBOOT_MODEを解除してから、WRAM上の切替ルーチンを介してNORのゲームリセットベクタへ移行する。CIC認証、バス安全状態、NOR読出制御も検証する。
+5. 実機起動後は異なるHiROMバンクに配置したデータを読み出し、CPLDの上位アドレス線、NOR事前ミラー配置、SlowROMのアクセス時間を検証する。その後LoROM/ExLoROM/ExHiROMとFastROMの経路を検証する。
 
 ### ARM対応の追加方針
 
@@ -102,4 +102,4 @@ HiROM起動後、SFC側に$00:5000通信レジスタ、FIFO、共有SRAM、割�
 
 初期段階でPVSnesLib本体の大幅なフォークは要求せず、既存Makefileに追加可能な独立SDKを優先する。ExHiROM対応を実施するときは、WLA-DXのバンク配置、ヘッダとベクタ、ライブラリのバンク参照、ARMバイナリとのNOR容量配分を合わせて検証する。
 
-**現時点の課題**は、ツールチェーン版の固定、最初のNOR書き込み方法、PSoC初期化とSFCリセットの同期、実機SlowROMタイミング、ExHiROM対応リンカ、ARM ABIと統合パッケージ形式である。
+**現時点の課題**は、ツールチェーン版の固定、最初のNOR書き込み方法、CPLDとPSoCの安全な起動・所有権切替、実機SlowROM/FastROMタイミング、LoROM/ExROM対応リンカ、ARM ABIと統合パッケージ形式である。

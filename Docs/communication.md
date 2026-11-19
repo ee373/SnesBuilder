@@ -1,6 +1,6 @@
 # SFC・ARM間通信と音源処理
 
-Rev.0.7 / 基本設計段階
+Rev.0.8 / 基本設計段階
 
 ## 1. 役割分担
 
@@ -14,7 +14,7 @@ Rev.0.7 / 基本設計段階
 | コントローラ入力、表示タイミング | SFC |
 | SPC700との通信 | SFC |
 | 標準音源の生成・再生 | SFC APU |
-| モノラル追加音源（Rev.0.7） | PSoC ARM + DVDAC、SFCカートリッジ外部音声入力 |
+| モノラル追加音源 | PSoC ARM + DVDAC、SFCカートリッジ外部音声入力 |
 
 通信レジスタ、外部共有SRAM、双方向FIFOを利用する。ARM側はゲーム全体のロジックを実行することもできる。
 
@@ -39,9 +39,9 @@ Rev.0.7 / 基本設計段階
 | $0C～$0F | 予約 | — | |
 | $10～$1F | 予約 | — | 将来の引数・結果・間接アクセス等 |
 
-Rev.0.7の通信レジスタは$00～$0Bの12アドレスを初期実装対象とし、予約アドレスはレジスタ応答を行わない。ARMへの書き込み通知には共通8bitメールボックスと、COMMAND・BUS_CONTROL・IRQ_CONTROL・IRQ_STATUS・LENGTH_LO・LENGTH_HIなどを識別できる3bit以上の種別を使用する。書き込み要求を1bitシーケンスで保持し、2FF CDCでARMへ通知する。ARMはデータと種別を処理し、REPLY・IRQ等を確定後にACKを更新する。ACKとシーケンスが一致するまでBUSYとし、BUSY中の新規書き込みは無視されるため、SFCはBUSY解除を待つ。CDCのセットアップ/ホールド、リセット復旧は実装時に検証する。
+通信レジスタは$00～$0Bの12アドレスを初期実装対象とし、予約アドレスはレジスタ応答を行わない。ARMへの書き込み通知には共通8bitメールボックスと、COMMAND・BUS_CONTROL・IRQ_CONTROL・IRQ_STATUS・LENGTH_LO・LENGTH_HIなどを識別できる3bit以上の種別を使用する。書き込み要求を1bitシーケンスで保持し、2FF CDCでARMへ通知する。ARMはデータと種別を処理し、REPLY・IRQ等を確定後にACKを更新する。ACKとシーケンスが一致するまでBUSYとし、BUSY中の新規書き込みは無視されるため、SFCはBUSY解除を待つ。CDCのセットアップ/ホールド、リセット復旧は実装時に検証する。
 
-SFC→ARMはUDB内部割り込み、ARM→SFCはP15[2]のオープンドレイン/IRQ（SFC端子18）を使用する。ARMがpendingを保持し、IRQ許可かつSFC所有の場合に通知する。ポーリングも使用可能とする。ARM側のUDBアドレスはCreatorの配置に依存するためBIOS APIで抽象化する。
+SFC→ARMはUDB内部割り込み、ARM→SFCはP15[2]のオープンドレイン/IRQ（SFC端子18）を使用する。ARMがpendingを保持し、IRQ許可とSFC側の割り込みベクタ有効状態を確認して通知する。ARMのMEMバス所有中にも$5000通信自体は使用できるが、IRQ受理時にカートリッジROMをフェッチしないプロトコルを設ける。ポーリングも使用可能とする。ARM側のUDBアドレスはCreatorの配置に依存するためBIOS APIで抽象化する。
 
 ## 3. 共有SRAM
 
@@ -49,7 +49,7 @@ SFC→ARMはUDB内部割り込み、ARM→SFCはP15[2]のオープンドレイ�
 
 共通メモリバスの所有権は排他的であり、ARM所有時にはSFCは本体WRAMに展開したコードを実行する。意図しないカートリッジROMアクセスを防ぐ必要がある。
 
-ARM所有中も$5000通信によって状態確認できる。A0～A4、A12～A15、A20～A23および制御信号をPSoCへ直接接続するため、3SB無効時も$5000領域のデコードに必要な信号を取得できる。SFC A19は3SB経由でMEM A19に接続し、PSoCへ直接入力しない。内部64KiB SRAMは直接マッピングせず、数KiB程度のデータはFIFO・DMA経由、大容量は外部共有SRAMを使用する。
+ARM所有中も$5000通信によって状態確認できる。SFC D0～D7は5VのPSoC P0[0:7]へ直接接続され、MEM D0～D7のP5とは独立している。CPLDが上位アドレスからSPECIAL_SELを出力し、PSoCは直接入力されたSFC A15（P4[6]）とA0～A4（P4[0:4]）で通信レジスタを選択する。$5000アクセス時は16T245データ側がHigh-Zとなるため、ARMの外部NOR/SRAM使用中にもP0から通信に応答できる。内部64KiB SRAMは直接SFCへマッピングせず、数KiB程度はFIFO・DMA経由、大容量は外部共有SRAMを使用する。
 
 ## 4. 双方向FIFO・DMA
 
@@ -87,11 +87,11 @@ ARM側ハードウェアレジスタ設計予算はControl 7個（所有権・�
 
 ## 5. 音源処理
 
-標準音源はSFCのSPC700とS-DSPを使用する。Rev.0.7では独立した追加音源としてPSoC内蔵DVDACのモノラル出力を設け、SFC外部音声入力のL/Rへ同相信号を供給する。ARMは音源データ管理、圧縮データ展開、BGM・効果音の再生指示やゲーム状態に応じた音源制御を担当する。SFC側CPUはARMからの指示とデータに基づきSPC700と通信する。PSoC側の追加音声はSPC700の8チャンネルを消費せず、SFC本体の外部音声ミキサーで合成する。12bit DVDACは帯域制約があるため10bit・32kHzを初期評価目標とし、実効分解能はLPFと音声帯域を含め実測する。[audio.md](audio.md)参照。
+標準音源はSFCのSPC700とS-DSPを使用する。本設計では独立した追加音源としてPSoC内蔵DVDACのモノラル出力を設け、SFC外部音声入力のL/Rへ同相信号を供給する。ARMは音源データ管理、圧縮データ展開、BGM・効果音の再生指示やゲーム状態に応じた音源制御を担当する。SFC側CPUはARMからの指示とデータに基づきSPC700と通信する。PSoC側の追加音声はSPC700の8チャンネルを消費せず、SFC本体の外部音声ミキサーで合成する。12bit DVDACは帯域制約があるため10bit・32kHzを初期評価目標とし、実効分解能はLPFと音声帯域を含め実測する。[audio.md](audio.md)参照。
 
 ## 6. USB経由のリアルタイム通信
 
-外部ホストとの実行時通信は既存のFull-Speed USB、内部SRAM、UDB双方向FIFOおよびDMAを利用する。USBホストはPCまたはRaspberry Piで、PSoCはUSBデバイスとして動作する。
+外部ホストとの実行時通信はFull-Speed USB、内部SRAM、UDB双方向FIFOおよびDMAを利用する。USBホストはPCまたはRaspberry Piで、PSoCはUSBデバイスとして動作する。
 
 ```text
 PC / Raspberry Pi (USB host)

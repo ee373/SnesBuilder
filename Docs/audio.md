@@ -1,6 +1,6 @@
-# PSoC追加モノラル音源（Rev.0.7）
+# PSoC追加モノラル音源（Rev.0.8）
 
-2026-11-18 / 基本設計。確定した構成方針と、Creator・実機での未検証事項を区別する。
+2026-11-19 / 基本設計。確定した構成方針と、Creator・実機での未検証事項を区別する。
 
 ## 目的・構成
 
@@ -20,11 +20,11 @@ ARM PCM生成/デコード → 内部SRAMバッファ → タイマー/DMA → D
 
 5V単電源のRRIO・ユニティゲイン安定なMCP6001T-I/OT（SOT-23-5）を第一候補とする。1MHz GBW、スルーレート0.6V/µs級の低価格部品で、入力はDVDACの1Vレンジを想定する。LPFの次数/定数、バッファのゲインと負荷、左右入力への分岐、DCカット、出力抵抗、電源デカップリングは回路図・実機確認で決める。SFCの本体リビジョンによる外部音声入力負荷と音量差、起動停止時のポップノイズ、電源ノイズを測定する。
 
-## 端子確保とROM方式
+## 端子・バス設計との整合
 
-PSoC P4[5]（83番）をAUDIO_DAC_OUTに割り当てる。SFC_A19はSN74LVC16244の未使用第3グループ入力33番→出力16番を使い、MEM_A19（P1[5] / 25番）へ通す。SFC所有時に3SBが駆動、ARM所有時は3SBを無効にしてP1[5]が駆動する。SRAM A16接続のMEM_A19はSFC A19を無変換で受ける。
+PSoCのDVDACはP4[5]（TQFP-100物理83番）へ出力する。PSoC P4の同じ5VドメインではA0–A4をSFCアドレス入力、P4[6]をSFC A15入力、P4[7]をCPLD MEM_BUS_OE制御に使用する。追加音声のアナログ配線がデジタルI/Oと干渉しないようPSoC Creatorのアナログルーティングを検証する。
 
-ROMハードウェアミラーリングは1MiB単位とする。1MiB未満のROMはNOR書込み時にデータを複製して1MiBへ整形し、1MiB以上の整数MiB容量ではハードウェアミラー、非整数MiB容量では不足分をソフトウェア補完する。ARM通信領域は$5000～$5FFFとし、双方向FIFO、HiROM/ExHiROM、NOR 8MiB、SRAM 128KiBを備える。
+外部メモリの高速アドレス変換はLC4064V CPLDが担当し、音声のDMA/タイマーはPSoCの既存周辺回路を使用する。USB、通信FIFO、ARM演算とDVDACのDMA利用を調停する。ROMマッピングはHiROM・ExHiROM・LoROM・ExLoROMに対応し、音声出力方式はゲームのROM形式に依存しない。
 
 ## 必須検証
 
@@ -33,8 +33,8 @@ ROMハードウェアミラーリングは1MiB単位とする。1MiB未満のROM
 - [ ] DVDAC 10bit/32kHzの実効帯域、S/N、歪、ディザリングノイズを測定する。
 - [ ] フィルタおよびMCP6001の5V動作・負荷・SFC入力との音量整合を確認する。
 - [ ] PSoC音声DMAとARM・FIFO・microSD・USBの並行実行を測定する。
-- [ ] 74LVC16244追加チャネルA19のバス調停とNOR/SRAMアクセスタイミングを確認する。
+- [ ] P4[7]のCPLD MEM_BUS_OE、P4[6]のSFC A15、P4[5]のDVDAC出力のPSoC Creator同時配置を確認する。
 
 ## 検証資料
 
-[verilog/README.md](verilog/README.md) に1MiBハードウェアミラーリングの独立検証を収録。Pythonモデル384条件PASS。Verilogテストベンチの実行、Creatorの合成・配置、アナログ経路、実機での音質測定は未完了。
+[verilog/README.md](verilog/README.md) に独立した過去版のミラーリング検証（履歴資料）を収録。Pythonモデル384条件PASS。Verilogテストベンチの実行、Creatorの合成・配置、アナログ経路、実機での音質測定は未完了。
