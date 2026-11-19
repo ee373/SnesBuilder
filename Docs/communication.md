@@ -48,7 +48,7 @@ SFCからの読出しデータ経路には8bit MUXを設け、ブート6バイ�
 
 共通メモリバスの所有権は排他的であり、ARM所有時にはSFCは本体WRAMに展開したコードを実行する。意図しないカートリッジROMアクセスを防ぐ必要がある。
 
-ARM所有中も$5000通信によって状態確認できる。SFC D0～D7は5VのPSoC P0[0:7]へ直接接続され、MEM D0～D7のP5とは独立している。CPLDが上位アドレスからSPECIAL_SELを出力し、PSoCは直接入力されたSFC A15（P4[6]）とA0～A4（P4[0:4]）で通信レジスタを選択する。$5000アクセス時はSN74LVC8T245データ側がHigh-Zとなるため、ARMの外部NOR/SRAM使用中にもP0から通信に応答できる。内部64KiB SRAMは直接SFCへマッピングせず、数KiB程度はFIFO・DMA経由、大容量は外部共有SRAMを使用する。
+ARM所有中も$5000通信によって状態確認できる。SFC D0～D7は5VのPSoC P0[0:7]へ直接接続され、MEM D0～D7のP5とは独立している。CPLDが上位アドレスからSPECIAL_SELを出力し、PSoCはP3[0:3]のSFC A0～A3、P3[4]のSPECIAL_SEL、P15[0]の/ROMSELで16アドレスの通信レジスタを選択する。$5000アクセス時はSN74LVC8T245データ側がHigh-Zとなるため、ARMの外部NOR/SRAM使用中にもP0から通信に応答できる。内部64KiB SRAMは直接SFCへマッピングせず、数KiB程度はFIFO・DMA経由、大容量は外部共有SRAMを使用する。
 
 ## 4. 双方向FIFO・DMA
 
