@@ -29,7 +29,7 @@ Rev0.8 / 2026-11-19。採用構成はPSoC CY8C5287AXI-LP095、CPLD AG256SL100、
 - [x] AG256の入力31＋出力23=54 I/Oと、LVC245A 38/40レーンの信号役割を再配置した（SFC A4–A11→#1→MEM、A12はAG256）。
 - [x] PSoC TQFP100の71/72使用ピンとAG256の54物理ピン候補をCSVに定義した。SFC /RESETはPSoC P15[1]へ直結する。
 - [x] ROM4形式、SRAM2形式、7段階容量マスク、SPECIAL_SEL、BOOT_MODEとバス所有権の論理契約を定義する。
-- [ ] AG256 LQFP-100物理ピン候補54本を[cpld-pinout.csv](cpld-pinout.csv)で固定し、SupraでI/Oバンク・出力OE・JTAG・配置条件を確認する。
+- [ ] AG256 LQFP-100物理ピン候補54本を[cpld-pinout.csv](cpld-pinout.csv)で固定し、[verify_rev08_interfaces.py](verify_rev08_interfaces.py)でPSoC/AG256ピン重複と7段階ミラーの静的検査を行った後、SupraでI/Oバンク・出力OE・JTAG・配置条件を確認する。
 - [ ] CPLDのVerilogを作成し、ROM/SRAM/SPECIAL_SELの相互排他と上位アドレス変換をHDLシミュレーションする。
 - [ ] AG256の256 LUTに全論理を収容し、最大経路遅延をSupraでSTAする。
 - [ ] PSoC CreatorでP0/P5、P3のSFC A0–A3/SPECIAL_SEL/読書き、P4[0:4]/P4[6:7]設定、P4[5] DVDAC、P12 SIO（MISO/VBUS）、P15[1]直接/RESET・P15[3] BOOT_MODE、USB/SWDを確認する。
