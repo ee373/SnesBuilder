@@ -1,6 +1,6 @@
 # 外部メモリとROM/SRAMマッピング
 
-Rev.0.8 / 2026-11-19。HiROM・ExHiROM・LoROM・ExLoROMへの対応、NORへの事前ミラー展開、128KiB共有SRAMの物理配線と起動窓を定義する。
+Rev.0.8 / 2026-11-19。HiROM・ExHiROM・LoROM・ExLoROMへの対応、2冪7段階のAG256ハードウェアミラーと非2冪容量のNOR事前展開、128KiB共有SRAMの物理配線と起動窓を定義する。
 
 ## 1. 外部NOR Flash
 
