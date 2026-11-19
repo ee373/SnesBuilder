@@ -37,4 +37,4 @@ PSoCのDVDACはP4[5]（TQFP-100物理83番）へ出力する。PSoC P4の同じ5
 
 ## 検証資料
 
-[verilog/README.md](verilog/README.md) にRev.0.7の独立ミラーリング検証（履歴資料）を収録。Pythonモデル384条件PASS。Verilogテストベンチの実行、Creatorの合成・配置、アナログ経路、実機での音質測定は未完了。
+[verilog/README.md](verilog/README.md) に独立した過去版のミラーリング検証（履歴資料）を収録。Pythonモデル384条件PASS。Verilogテストベンチの実行、Creatorの合成・配置、アナログ経路、実機での音質測定は未完了。
