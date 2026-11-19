@@ -73,7 +73,7 @@ PSoCの初回プログラム書き込み、デバッグ、USBブートローダ�
 | config.json | カートリッジ設定 |
 | patches/ | 既存ROM向けパッチ |
 
-manifestにはゲーム名、バージョン、ゲームID、必要なBIOSバージョン、ARMコードの実行条件、ROMマッピング（HiROM、ExHiROM、LoROM、ExLoROM）・有効容量、NORへの事前ミラー展開規則、SRAM形式・使用容量、リソース情報などを記録する。正式な形式とフィールドはSDK仕様として確定する。
+manifestにはゲーム名、バージョン、ゲームID、必要なBIOSバージョン、ARMコードの実行条件、ROMマッピング（HiROM、ExHiROM、LoROM、ExLoROM）・有効容量、2冪ハードウェア容量マスク・非2冪NOR展開規則、SRAM形式・使用容量、リソース情報などを記録する。正式な形式とフィールドはSDK仕様として確定する。
 
 ## 4. 開発カートリッジの起動処理
 
@@ -116,6 +116,6 @@ USBホスト駆動機能は現行回路の応用であり、実装・動作確�
 
 ## ROM展開と追加音声ドライバ
 
-ゲームローダはROMの実容量とゲーム固有のミラー規則を判定し、2冪容量では128KiB～8MiBの7段階ROM_SIZEをAG256へ設定してNORに元データだけを書き込み、非2冪容量では次の2冪容量まで必要なデータをNORへ展開する。形式はHiROM、ExHiROM、LoROM、ExLoROMの4種類とし、CPLD側MODE_HILO/CFGと一致させる。NORキャッシュ再利用、消去セクタ・書込みバッファの最適化を行う。NORはBYTE#=LowでMEM A0→DQ15/A-1、MEM A1–A22→NOR A0–A21の物理配線を使用するため、NORコマンドアドレスもバイトアドレスで生成する。
+ゲームローダはROMの実容量とゲーム固有のミラー規則を判定し、2冪容量では128KiB～8MiBの7段階ROM_SIZEをAG256へ設定してNORに元データだけを書き込み、非2冪容量では次の2冪容量まで必要なデータをNORへ展開する。形式はHiROM、ExHiROM、LoROM、ExLoROMの4種類とし、CPLD側MODE_HILO/ROM_SIZEと一致させる。NORキャッシュ再利用、消去セクタ・書込みバッファの最適化を行う。NORはBYTE#=LowでMEM A0→DQ15/A-1、MEM A1–A22→NOR A0–A21の物理配線を使用するため、NORコマンドアドレスもバイトアドレスで生成する。
 
 追加モノラル音声ドライバはPSoC内蔵DVDAC、タイマー、DMA、内部SRAMのサンプルバッファで構成する。初期評価は10bit・32kHz PCM、12bitは低帯域で評価する。外部音声入力のアナログレベル、起動/停止時のポップノイズ、DMA負荷は実機で測定する。SPC700とS-DSPの標準音声機能は維持する。[audio.md](audio.md)参照。
