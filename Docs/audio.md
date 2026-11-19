@@ -24,7 +24,7 @@ ARM PCM生成/デコード → 内部SRAMバッファ → タイマー/DMA → D
 
 PSoCのDVDACはP4[5]（TQFP-100物理83番）へ出力する。PSoC P4の同じ5VドメインではA0–A4をSFCアドレス入力、P4[6]をSFC A15入力、P4[7]をCPLD MEM_BUS_OE制御に使用する。追加音声のアナログ配線がデジタルI/Oと干渉しないようPSoC Creatorのアナログルーティングを検証する。
 
-外部メモリの高速アドレス変換はLC4064V CPLDが担当し、音声のDMA/タイマーはPSoCの既存周辺回路を使用する。USB、通信FIFO、ARM演算とDVDACのDMA利用を調停する。ROMマッピングはHiROM・ExHiROM・LoROM・ExLoROMに対応し、音声出力方式はゲームのROM形式に依存しない。
+外部メモリの高速アドレス変換はAG256SL100 CPLDが担当し、音声のDMA/タイマーはPSoCの既存周辺回路を使用する。USB、通信FIFO、ARM演算とDVDACのDMA利用を調停する。ROMマッピングはHiROM・ExHiROM・LoROM・ExLoROMに対応し、音声出力方式はゲームのROM形式に依存しない。
 
 ## 必須検証
 
@@ -33,7 +33,7 @@ PSoCのDVDACはP4[5]（TQFP-100物理83番）へ出力する。PSoC P4の同じ5
 - [ ] DVDAC 10bit/32kHzの実効帯域、S/N、歪、ディザリングノイズを測定する。
 - [ ] フィルタおよびMCP6001の5V動作・負荷・SFC入力との音量整合を確認する。
 - [ ] PSoC音声DMAとARM・FIFO・microSD・USBの並行実行を測定する。
-- [ ] P4[7]のCPLD MEM_BUS_OE、P4[6]のSFC A15、P4[5]のDVDAC出力のPSoC Creator同時配置を確認する。
+- [ ] P4[7]のAG256 MEM_BUS_OE、P4[6]のSFC A15、P4[5]のDVDAC出力のPSoC Creator同時配置を確認する。
 
 ## 検証資料
 

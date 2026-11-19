@@ -14,13 +14,16 @@ Rev0.8 / 2026-11-19。本リビジョンで採用した部品と機能の仕様�
 
 ## 2. CPLDとレベル変換
 
-- [Lattice ispMACH 4000Vファミリ](https://www.latticesemi.com/Products/FPGAandCPLD/ispMACH4000VZ)：LC4064Vの64マクロセル、100-TQFP 64 I/O＋10専用入力、3.3V動作、5Vトレラント入力、個別OE/GOE機構。
-- [LC4064V-75TN100C DigiKey製品情報](https://www.digikey.jp/ja/products/detail/lattice-semiconductor-corporation/LC4064V-75TN100C/2641838)：型番、パッケージ、速度グレード、数量別参考単価。
-- [TI SN74LVC16T245](https://www.ti.com/product/SN74LVC16T245)、[データシート](https://www.ti.com/lit/ds/symlink/sn74lvc16t245.pdf)：16bit独立8bitグループのDIR/OE、VCCA/VCCB、3.3V基準の制御入力、B側5VのVIHと伝搬遅延、Ioff。
-- [SN74LVC16T245DLR DigiKey製品情報](https://www.digikey.jp/ja/products/detail/texas-instruments/SN74LVC16T245DLR/1591918)：48-SSOP、参考単価。
+- [AGM AG256SL100製品情報](https://www.agmcn.com/product-news/1667.html)：不揮発CPLD、256 LUT/LE、80 I/O、LQFP-100、JTAG。
+- [AGM CPLD Rev1.2メーカー資料](https://www.agm-micro.com/upload/userfiles/files/AG_CPLD_Rev1_2.pdf)：AG256のピン表、VDDC/VDDIO/VDDF33の3.3V推奨動作範囲、内部遅延と出力イネーブル。
+- [AGM Supra開発資料](https://www.agmsemi.com/new_details_4795553.html)：AG256SL100のツールチェーンとMAX II互換開発手順。
+- [TI SN74LVC8T245](https://www.ti.com/product/SN74LVC8T245)、[データシート](https://www.ti.com/lit/ds/symlink/sn74lvc8t245.pdf)：8bit双方向、VCCA 3.3V/VCCB 5V、DIR・/OE、VIHと伝搬遅延。
+- [SN74LVC8T245DBR DigiKey製品情報](https://www.digikey.jp/ja/products/detail/texas-instruments/SN74LVC8T245DBR/1216671)：SSOP-24、参考単価。
+- [Nexperia 74LVC245A](https://www.nexperia.com/products/analog-logic-ics/logic/buffers-inverters-transceivers/transceivers/serie/74lvc245a-74lvch245a)：5V許容入力、3.3V駆動、DIR・/OE、Ioff。
+- [74LVC245APW,118 DigiKey製品情報](https://www.digikey.jp/ja/products/detail/nexperia-usa-inc/74LVC245APW-118/946691)：TSSOP-20、1個・100個単価。
 - [SD Association規格](https://www.sdcard.org/downloads/pls/)：microSD SPIモードの電圧・クロック・CS条件。
 
-LC4064Vの7.5nsは規定条件下でのデバイス速度グレードであり、SFC A→CPLD→NOR A/CEのすべての配置配線経路に対する実測値ではない。CPLDのピン割当てとマクロセル収容はLatticeフィッタの結果で判断する。
+AG256の資料にあるLUT/IOE遅延は内部素子の参考値であり、SFC→LVC245A→AG256→NOR A/CEのフィッティング後の総遅延ではない。256 LUT、54/80 I/Oと出力別OE制御への収容はAGM Supraで確認する。
 
 ## 3. 外部メモリ
 
@@ -52,6 +55,6 @@ LC4064Vの7.5nsは規定条件下でのデバイス速度グレードであり�
 
 ## 6. 計測値と設計上の数値
 
-PSoC経由のNOR読出し全体約210ns、アドレス往路約60ns、データ復路約50ns、往路約60nsのうちGPIOの遅延約50nsはプロジェクト内で確認した参考値である。Rev0.8はこれらのPSoC経路をSFCの高速メモリ読出しから除外する。CPLD＋NOR＋16T245の合成後遅延および実機FastROM 120ns適合は未測定である。
+PSoC経由のNOR読出し全体約210ns、アドレス往路約60ns、データ復路約50ns、往路約60nsのうちGPIOの遅延約50nsはプロジェクト内で確認した参考値である。Rev0.8はこれらのPSoC経路をSFCの高速メモリ読出しから除外する。LVC245A＋AG256＋NOR＋8T245の合成後遅延および実機FastROM 120ns適合は未測定である。
 
 BOM単価は2026年11月の販売店調査値であり、[production.md](production.md)の1枚・100枚試算を現在の部品表の基準とする。
