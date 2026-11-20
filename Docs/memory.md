@@ -34,7 +34,7 @@ SRAM A0～A12←MEM A0～A12、SRAM A13～A16←MEM A16～A19。SRAM /CE1 PIN22�
 
 FPGAがHiROM/LoROM/ExHiROM/ExLoROMをデコードする。ROM_SIZEの7段階は128KiB（物理A17–A22を0）、256KiB（A18–A22を0）、512KiB（A19–A22）、1MiB（A20–A22）、2MiB（A21–A22）、4MiB（A22）、8MiB（マスクなし）とする。非2冪ROMはローダが元ROMの反復規則に沿ってNORへ事前展開する。SRAMにROMマスクは適用しない。HiROM基本アドレスはMEM A0–A21←SFC A0–A21、LoROM基本はMEM A0–A14←SFC A0–A14、MEM A15–A21←SFC A16–A22とし、MEM A22をEx領域の選択に使用する。WRAM/IO/特殊領域とSRAMの優先デコードも行う。SRAM物理0x1E000～0x1FFFFの8KiBへBIOSを配置する。
 
-SRAM物理0x1E000～0x1FFFFの8KiBをBIOSに使用する。NOR書込み時はROM容量マスクを適用せず、完全な物理アドレスを使う。HiROM/LoROM/Ex形式の実際のバンク選択にはSFC WRAM/IOとSRAMの優先デコードを伴う。
+起動時はSRAM物理0x1E000～0x1FFFFの8KiBをBIOSに使用する。BIOS実行を終えてBIOS窓を解除した後は、ゲームのセーブSRAMマッピングで末尾8KiBも使用できる。電源断時の永続退避は物理先頭120KiBを対象とする。NOR書込み時はROM容量マスクを適用せず、完全な物理アドレスを使う。HiROM/LoROM/Ex形式の実際のバンク選択にはSFC WRAM/IOとSRAMの優先デコードを伴う。
 
 ## セーブデータ用256KiB SPI NOR
 
@@ -49,4 +49,4 @@ SRAM物理0x00000～0x1DFFF（120KiB）だけをバックアップ対象とし�
 
 ## ゲームパッケージとRISC-V実行イメージ
 
-8MiBパラレルNORはSFCゲームROMだけでなく、ゲーム固有のRISC-V実行バイナリとリソースを格納する。内蔵Flashの共通ローダが、FPGA/AHB経由でNORからRISC-V実行イメージを読み出してAG32内蔵SRAM（CPU側0x20000000を基準とする実行領域）に展開し、エントリポイントへ制御を移す。ゲームROMの物理範囲とRISC-V/リソースの格納範囲はパッケージメタデータで区別し、NORの8MiB総容量内に収める。ROM容量マスクはSFC側のROMアクセスに適用し、ローダによる物理NORアクセスには適用しない。外部SRAM末尾8KiBは従来どおりSFC BIOS用とし、RISC-Vアプリケーションの命令フェッチ元にはしない。詳細は[firmware.md](firmware.md)を参照する。
+8MiBパラレルNORはSFCゲームROMだけでなく、ゲーム固有のRISC-V実行バイナリとリソースを格納する。内蔵Flashの共通ローダが、FPGA/AHB経由でNORからRISC-V実行イメージを読み出してAG32内蔵SRAM（CPU側0x20000000を基準とする実行領域）に展開し、エントリポイントへ制御を移す。ゲームROMの物理範囲とRISC-V/リソースの格納範囲はパッケージメタデータで区別し、NORの8MiB総容量内に収める。ROM容量マスクはSFC側のROMアクセスに適用し、ローダによる物理NORアクセスには適用しない。起動時のSFC BIOSは外部SRAM末尾8KiB、RISC-Vアプリケーションの命令フェッチ元はAG32内蔵SRAMとする。詳細は[firmware.md](firmware.md)を参照する。

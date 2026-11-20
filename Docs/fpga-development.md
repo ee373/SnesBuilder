@@ -7,3 +7,5 @@ Supraはメーカー配布パッケージのライセンス条件に従う。AGa
 検証対象は自動生成トップのAHB・IRQ・DMA、MEM D0–D7の双方向出力OE、外付けU1/U6排他OE、SFC非同期入力→出力最大遅延の取得、およびFastROM120nsである。単純なSetup/HoldレポートをSFC非同期バス全体の保証と解釈しない。
 
 参考：[AG32公式](https://www.ag32mcu.com/aum-product/products_mcu_ag32vf407_100/)・[Native実機開発例](https://blog.csdn.net/Naisu_kun/article/details/166950248)・[AGaMEMnon](https://github.com/bbenchoff/AGaMEMnon)。
+
+Rev.0.9のアドレスマッピング初版、ピン制約、再ビルド手順は [FPGAプロジェクト](../fpga/README.md) を参照。

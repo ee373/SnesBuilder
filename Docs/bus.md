@@ -8,6 +8,8 @@ CPUのAHBメモリ窓候補は制御0x60000000、FIFO0x60001000、NOR8MiB=0x6100
 
 **MEM D0～D7はSFCとNOR/SRAMとAG32で共通のため、CPU所有中にも独立したSFC通信データバスが存在するわけではない。** SFCの$5000特殊応答前にCPU側のメモリストローブを終了・停止し、NOR/SRAM/U5/AG32の出力方向を切替する。SFCのアクセス時間を任意に延長できないため、短いMEMサービス枠、NORプログラム中のBUSY、WRAM側待機プロトコルを含むアービタを実装する。所有権FSMはISOLATE→QUIET→CONFIGURE→GUARD→OWNER、切替時はU1/U6/U5を一時無効化してMEM制御を非選択とする。
 
-MEM制御4本はAG32 PIN61–64、U1/U6/U5の出力許可制御はPIN65–67、外部MEMデータ8本はPIN78–85を使用する。SFC A6–A11はAG32で入力しない。FPGAはROMアドレスMUX17本とU1/U6外部バッファによってMEMアドレスを構成する。
+CPUへの貸出時間はソフトウェアが管理する。貸出中は65C816をWRAMで待機させ、カートリッジへのCPU・DMA・HDMAアクセスは返却後に再開する。FPGAはCPU所有中にSFC側のU1/U5を無効にし、返却要求後に進行中の転送とNOR BUSYの終了を待つ。貸出時間による強制返却は行わない。
+
+MEM制御4本はAG32 PIN61–64、U1/U6/U5の出力許可制御はPIN65–67、外部MEMデータ8本はPIN78–85を使用する。FPGAはCPUメモリ書込み、BIOS固定応答、SFC通信レジスタ読出しでのみMEMデータ線を駆動する。SFC A6–A11はU1を通り、CPU側のA6–A11はAG32 PIN55–60からU6を通る。PIN55–60はCPU所有時だけ駆動する。所有権切替時はU1/U6の両出力とAG32 PIN55–60をHi-Zにする。
 
 SlowROM200ns以内を必須、FastROM120ns以内を設計目標とする。SFC→U1→NOR、SFC→U2/U3/U4→FPGA→NOR、SFC /ROMSEL→FPGA→NOR /CE、NOR→U5→SFCの各経路を独立して評価する。Supra Nativeの非同期I/Oタイミング制約・レポートを検証し実機測定を行う。
