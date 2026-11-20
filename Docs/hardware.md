@@ -15,7 +15,7 @@
 | 19–22 / 50–53 | D0–D3 / D4–D7 | U5 A側 |
 | 18 | /IRQ | AG32 PIN26→オープンドレインLow回路 |
 | 26 | /RESET | 5V⇄3.3V双方向オープンドレイン変換→AG32 PIN7 |
-| 31 / 62 | AUDIO L / R | AG32 PIN29/30のFPGA DSM出力→受動RC＋約22kHzアクティブLPF/MCP6002 |
+| 31 / 62 | AUDIO L / R | AG32 PIN29/30のFPGA 1 bit DSM出力 → 受動RC → MCP6002による約22 kHzアクティブLPF |
 | 24/25/55/56 | CIC | PIC12F629 |
 | 27/58、5/36 | +5V、GND | 電源・接地 |
 
@@ -31,7 +31,7 @@
 | U4 | SFC A20,A21,A22,A23,/ROMSEL,GND,GND,GND | AG32 PIN54,53,52,51,48,NC,NC,NC | GND固定 |
 | U6 | AG32 PIN55,56,57,58,59,60,GND,GND | MEM A11,A10,A9,A8,A7,A6,NC,NC | AG32 PIN66 |
 
-U1とU6のB側CH0～5を同一MEM A11～A6へ接続する。SFC所有時にはU1だけを有効、CPU所有時にはU6だけを有効とし、切替時は両者を無効とする。AG32のアドレス出力23本はすべて通常OUTPUTとして実装する。
+U1とU6のB側CH0～5を同一MEM A11～A6へ接続する。SFC所有時にはU1だけを有効、CPU所有時にはU6だけを有効とし、切替時は両者を無効とする。U6へ向かうAG32 PIN55～60はCPU所有時だけ駆動し、それ以外はHi-Zにする。残る17本のアドレス線は通常の出力とする。
 
 U5 SN74LVC8T245DBRはVCCA PIN1=5V、VCCB PIN23/24=3.3V、GND PIN11～13、SFC D0～D7→A側PIN3～10、MEM D0～D7→B側PIN21～14。DIR PIN2=SFC /RD（LowでMEM→SFC、HighでSFC→MEM）。/OE PIN22は5Vプルアップ、AG32 PIN67→N-MOSFETによるLow駆動で有効化する。AG32のMEM D0～D7はU5・NOR・SRAMと物理共通であり、FPGAの双方向出力許可を引き続き必要とする。
 
@@ -48,7 +48,7 @@ U5 SN74LVC8T245DBRはVCCA PIN1=5V、VCCB PIN23/24=3.3V、GND PIN11～13、SFC D0
 | 24 | 電源断検出 POWER_FAIL入力 |
 | 25 | GPIO予備1本 |
 | 26 | SFC /IRQ用MOSFET制御 |
-| 29/30 | FPGA 1bit DSM AUDIO L/R（DAC0/DAC1兼用IO） |
+| 29/30 | FPGAデジタル出力 `DAC0_AUDIO_L` / `DAC1_AUDIO_R`。左右独立の8 MHz・3次1 bit DSM |
 | 31–36 | SFC A0–A5 |
 | 37 | BOOT1 |
 | 38/39 | SFC /RD・/WR |
@@ -68,7 +68,7 @@ U5 SN74LVC8T245DBRはVCCA PIN1=5V、VCCB PIN23/24=3.3V、GND PIN11～13、SFC D0
 | 94 | BOOT0 |
 | 95–98 | MEM A14–A17 |
 
-BOOT0=94・BOOT1=37は通常Low、UART復旧時に設定変更可能。JTAG兼用PIN77/89/90はSWDを確保したうえでGPIOへ設定する。MEMアドレス23本、SFCアドレス専用18本、データ8本、SFC制御5本、MEM制御4本、変換OE3本、SD4本、USB3本、DAC2本、UART2本、SWD2本、BOOT1予約1本を合計して**77本、予備1本**とする（従来75本にSPI NOR /CS・POWER_FAIL入力を追加）。固定電源/NC端子を含む100ピン表は[pinout.csv](pinout.csv)が正本である。
+BOOT0=94・BOOT1=37は通常Low、UART復旧時に設定変更可能。JTAG兼用PIN77/89/90はSWDを確保したうえでGPIOへ設定する。MEMアドレス23本、SFCアドレス専用18本、データ8本、SFC制御5本、MEM制御4本、変換OE3本、SD4本、USB3本、DSM音声出力2本、UART2本、SWD2本、BOOT1予約1本を合計して**77本、予備1本**とする（従来75本にSPI NOR /CS・POWER_FAIL入力を追加）。固定電源/NC端子を含む100ピン表は[pinout.csv](pinout.csv)が正本である。
 
 ## ③ 外部メモリ
 
@@ -130,4 +130,4 @@ SFCの通常NOR読出しにはRISC-Vソフトウェア処理やAHBを介在さ�
 
 AG32内蔵FlashはSFCBuilder共通システムファームウェア（標準SFCプログラム、フォント、起動ローダ、セーブデータ退避・復元処理、FPGA構成データ）を保持する。外部8MiB NORにはSFCゲームROMとゲーム固有のRISC-V実行イメージを同梱し、起動時に後者をAG32内蔵SRAM128KiBの専用領域へ展開してそのエントリポイントへ移行する。常駐制御用RAMとアプリケーションRAMをリンカで分離し、電源断時の退避は内蔵Flashの共通コードで実施する。詳細は[firmware.md](firmware.md)を参照する。
 
-FPGA音声系は64kHz/16bitステレオPCMを5倍線形補間（19bit）→64タップFIR（320kHz、signed 12bit係数、20×12bitの4bit逐次乗算器を左右共有、96MHz演算）→25倍線形補間→8MHzの左右独立3次1bit DSMとして出力する。DSMエッジは水晶由来8MHzを基準とし、PIN29/30から受動RC・約22kHzアクティブLPF・MCP6002を経てSFC AUDIO L/Rへ接続する。詳細は[audio.md](audio.md)を参照する。
+FPGA音声系は64 kHz・16 bitステレオPCMを、共通の80 MHz `BUSCLK` で動く5相FIRで320 kHz・17 bitに変換する。水晶由来の8 MHz側で各サンプルを25クロック保持し、左右独立の3次1 bit DSMからPIN29/30へ出力する。受動RCとMCP6002によるアクティブLPFを経て、SFC AUDIO L/Rへ接続する。[音声処理と出力仕様](audio.md)

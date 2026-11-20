@@ -1,0 +1,3 @@
+PLLCLK2 96
+PLL_CLKOUT2 audio_fir_clock:OUTPUT
+PIN_HSE_OUT audio_dsm_clock:OUTPUT

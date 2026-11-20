@@ -1,0 +1,4 @@
+/.pio/
+/rtl/*
+!/rtl/sfcbuilder.v
+!/rtl/sfcbuilder_audio.v

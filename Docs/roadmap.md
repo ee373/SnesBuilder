@@ -7,7 +7,8 @@
 - [ ] CPU→FPGA AHBメモリコントローラ、HREADYOUT、NOR/SRAM8bit、SFC優先通信。
 - [ ] `$5000 CPU_CONTROL`（bit0停止要求、`$5002 STATUS` bit3停止完了）、`$5001 COMMAND`以降の13レジスタ、64アドレス通信窓、FIFO、IRQ、ブート固定6バイト、内蔵FlashからのSRAM BIOS展開。
 - [ ] 共通Flashファームウェア（Jet 3D、cmixer 16音を含む）とゲーム固有RISC-V SRAM実行のリンカ/ABI、外部NORのパッケージ配置、起動時ロード・エントリポイント移行、アプリ停止中のSFC通信と電源断退避、退避専用スタックを検証。
-- [ ] 64kHz/16bitステレオPCM、19bit補間、64タップ対称FIRの20×12bit 4bit逐次乗算器、96MHz 300クロック枠、8MHz 3次DSM、22kHzアナログLPFを合成・測定。
+- [x] 64 kHz・16 bitステレオPCM、80 MHzポリフェーズFIR、17 bitサンプル保持、8 MHzの3次DSMを本番構成に統合し、配置配線とSTAを確認。
+- [ ] 音声端子で約22 kHzのアナログLPFを含めた特性を実測。
 - [ ] SlowROM200ns、FastROM120nsのSTA・実機測定と電源/CIC/リセット検証。
 - [ ] PVSnesLib HiROM/SlowROM→LoROM/Ex形式、SDK、エミュレータ。
 - [ ] Jet＋cmixerによるOSの3D起動ロゴ・64kHzステレオDSMジングル、CPU_CONTROL停止・再開・起動診断を検証。

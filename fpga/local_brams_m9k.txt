@@ -1,0 +1,47 @@
+ram block $__BRAM9K_TDP_ {
+  abits 13;
+  widths 1 2 4 9 18 per_port;
+  byte 9;
+  cost 64;
+  init no_undef;
+  port srsw "A" "B" {
+    clock anyedge;
+    clken;
+    rden;
+    wrbe_separate;
+    rdinit no_undef;
+    portoption "RDWR" "read_before_write" {
+      rdwr old;
+      wrtrans all old;
+    }
+    portoption "RDWR" "write_thru" {
+      rdwr new_only;
+      wrtrans all old;
+    }
+  }
+}
+
+ram block $__BRAM9K_PDP_ {
+  abits 13;
+  widths 1 2 4 9 18 36 per_port;
+  byte 9;
+	cost 64;
+  init no_undef;
+  port sr "R" {
+    clock anyedge;
+    clken;
+    rden;
+    rdinit no_undef;
+  }
+  port sw "W" {
+    clock anyedge;
+    clken;
+    wrbe_separate;
+    portoption "RDWR" "read_before_write" {
+      wrtrans all old;
+    }
+    portoption "RDWR" "write_thru" {
+      wrtrans all new;
+    }
+  }
+}

@@ -32,4 +32,8 @@ FPGAはCPU_CONTROLの要求を保持し、CDCを介してRISC-V共通ファー�
 
 双方向FIFOは初期各4バイトとする。FPGAはSFCからの書込みをFIFO・コマンドに保存してRISC-VへIRQ通知し、RISC-Vの返信値を事前にレジスタ/FIFOへ格納する。SFCの/RDサイクルをCPU割り込み処理待ちで延長しない。異なるクロック領域ではFIFOポインタ、ACK、CPU_CONTROLの要求・完了を同期する。IRQと必要に応じたDMA要求はAG32内蔵バスで伝達する。
 
+REPLYの未ACK枠は1件。RISC-VはIRQ_STATUS bit1が0になってからREPLYを登録する。枠が埋まっている間の書込みはAHB ERRORとし、保留中の返信を保持する。SFCの旧返信ACKとRISC-Vの新しい返信の書込みが同じクロックに重なった場合は、その枠を新しい返信に引き継ぐ。
+
 Jet/cmixer専用のSFCレジスタは設けず、ゲーム固有RISC-Vコードが共通Flashのライブラリを直接使用する。SFCとの情報交換にはCOMMAND・FIFO・IRQと共有SRAMを用いる。共有MEMのサービス枠と待機条件は[bus.md](bus.md)、アプリ停止と共通ファームウェアの役割は[firmware.md](firmware.md)を参照する。
+
+FPGAの固定6バイト応答は起動時に限りSFC A6～A11をデコード対象から外す。RISC-VがBOOT_CONTROLのBOOT_MODEをクリアすると固定応答を解除する。BIOSのSRAM窓はBOOT_CONTROLの別ビットで保持できる。AHB側の起動・返却手順は [FPGA実装仕様](../fpga/README.md) を参照。
