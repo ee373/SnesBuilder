@@ -16,7 +16,7 @@ AG32VF407VGT6（RISC-V＋FPGA）を1チップ制御SoCとし、SFCアドレス18
 | [fpga-development.md](fpga-development.md) | Supra Native、ライセンス、DAP |
 | [production.md](production.md) | Rev.0.9 BOM、PCB、販売構想 |
 | [roadmap.md](roadmap.md) | 未検証と実装工程、INT16×4 MACストレッチ目標 |
-| [prototypes/3d-demo/README.md](prototypes/3d-demo/README.md) | Rev.0.9 3Dデモの本命8bpp BG1統一方式（116×112／124×112・60i目標）、CGRAM/VRAM併用転送・HDMA検証、4bpp＋8bpp混合188×112の参考設計 |
+| [prototypes/3d-demo/README.md](prototypes/3d-demo/README.md) | Rev.0.9 3Dデモ・USB映像共通のMode 3 BG1 8bpp方式（152×104、128＋24画素、上下各8走査線の強制ブランキング）、VRAM DMA・CGRAM/VOFS HDMAと実機検証 |
 | [prototypes/audio-demo/README.md](prototypes/audio-demo/README.md) | 多重PCM・EQ・エフェクト・FIR/3次DSMのデモと音質測定計画 |
 | [rom-compatibility.md](rom-compatibility.md) | 既存ROMの互換性 |
 | [sdk-emulator.md](sdk-emulator.md) | SDK、エミュレータ、カートリッジ→SFC映像転送の共通経路、USB映像モードへのMode 3・BG1 8bpp／DMA＋HDMA方式の適用 |

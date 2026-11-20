@@ -10,7 +10,15 @@
 - [ ] 64kHz/16bitステレオPCM、19bit補間、64タップ対称FIRの20×12bit 4bit逐次乗算器、96MHz 300クロック枠、8MHz 3次DSM、22kHzアナログLPFを合成・測定。
 - [ ] SlowROM200ns、FastROM120nsのSTA・実機測定と電源/CIC/リセット検証。
 - [ ] PVSnesLib HiROM/SlowROM→LoROM/Ex形式、SDK、エミュレータ。
-- [ ] 将棋AI、[3Dグラフィックスデモ](prototypes/3d-demo/README.md)（本命: Mode 3・BG1 8bpp統一、116×112／124×112・約60フィールド/秒の設計目標。CGRAM HDMAの実書込時間、BG1VOFS、インターレース表示位置を最初に検証）、[多重PCM・64kHzステレオDSM音声デモ](prototypes/audio-demo/README.md)、[USB映像転送デモ](sdk-emulator.md#カートリッジからsfc本体への映像転送)（3Dデモと同じMode 3・BG1 8bpp統一／V-Blank DMA＋CGRAM・BG1VOFS HDMAを採用し、USB入力・共有SRAM・65C816転送の同期と帯域を実測）の実証。
+- [ ] 将棋AI、[3Dグラフィックスデモ](prototypes/3d-demo/README.md)（Mode 3・BG1 8bpp、**152×104の単一目標**。128画素のVRAM DMA＋24画素のCGRAM HDMA、上下各8走査線の強制ブランキング、偶奇52＋52ラインの表示を検証）、[多重PCM・64kHzステレオDSM音声デモ](prototypes/audio-demo/README.md)、[USB映像転送デモ](sdk-emulator.md#カートリッジからsfc本体への映像転送)（3Dデモと共通の映像転送経路、USB受信・共有SRAM・65C816・PPUの同期と帯域を実測）の実証。
+
+
+## 映像転送方式の優先検証
+
+- [ ] CGADD（CH0、1B）→CGDATA（CH1～6、各2B）→BG1VOFS（CH7、2B）のHDMA実行順序・CGRAM自動加算・書込み可能時間・テーブル再読み込みを測定し、24色/画像ラインが正常表示されることを確認。
+- [ ] `$2100 INIDISP`で上側8＋下側8走査線を強制ブランキングし、可視208走査線の開始・終了をHV-IRQ等で同期。HDMA全8チャネルとの競合を避けながら7,168B/フィールドのVRAM DMAを完了できるか、走査線単位の時刻表を作成。
+- [ ] Mode 3の偶奇各52ライン、4走査線/画像ラインのBG1VOFS補正、A/Bパレット切替により、論理104ラインの独立した画素位置と約60フィールド/秒の継続更新を実機・エミュレータで評価。
+- [ ] 3DレンダリングおよびUSB受信を共通の128px 8bppタイル＋24px RGB555形式へ変換し、共有SRAMバッファ所有権、FIFO/IRQ通知、DMA/HDMA完了を検証。
 
 回路規模・ピン合法性・実機FastROMは未検証。歴史的RTLの検証結果を現行の合格根拠に使用しない。
 
