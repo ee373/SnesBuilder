@@ -1,6 +1,6 @@
 # Rev.0.9 FPGA・AHB・MEM所有権
 
-FPGAはROMマッピング、メモリ制御、AHBコントローラ、通信レジスタ、FIFO、起動固定応答、バス調停を担当する。カートリッジからSFC本体への映像転送でも共通MEM所有権調停を用い、画像本体は共有SRAM、通知は通信レジスタ/FIFO/IRQを利用する。3DデモとUSB映像モードの表示経路は[SDK・USB連携](sdk-emulator.md#カートリッジからsfc本体への映像転送)を参照する。RISC-VはUSB・microSD・ローダ・演算・音声を担当する。CPU→FPGA内部AHB `mem_ahb_*`、FPGA→CPU側`slave_ahb_*`、`ext_dma_*`、`local_int[3:0]`、sys_clock/bus_clock/resetnをPrepare LOGICの自動生成トップで接続する。外部MEM A0～A5・A12～A22の17本はFPGAのSFC/CPUアドレスMUX出力、A6～A11はU1/U6の所有権切替で駆動する。
+FPGAはROMマッピング、メモリ制御、AHBコントローラ、通信レジスタ、FIFO、起動固定応答、バス調停を担当する。カートリッジからSFC本体への映像転送でも共通MEM所有権調停を用い、画像本体は共有SRAM、通知は`$5001 COMMAND`等の通信レジスタ/FIFO/IRQを利用する。`$5000 CPU_CONTROL`はゲーム固有RISC-V処理の停止要求、`$5004 BUS_CONTROL`はMEM所有権制御として独立させる。3DデモとUSB映像モードの表示経路は[SDK・USB連携](sdk-emulator.md#カートリッジからsfc本体への映像転送)を参照する。RISC-VはUSB・microSD・ローダ・演算・音声を担当する。CPU→FPGA内部AHB `mem_ahb_*`、FPGA→CPU側`slave_ahb_*`、`ext_dma_*`、`local_int[3:0]`、sys_clock/bus_clock/resetnをPrepare LOGICの自動生成トップで接続する。外部MEM A0～A5・A12～A22の17本はFPGAのSFC/CPUアドレスMUX出力、A6～A11はU1/U6の所有権切替で駆動する。
 
 映像転送では**152×104（128px通常BG1 8bpp＋24px動的RGB555）**の共通表示経路を採用し、65C816が共有SRAMを転送元にVRAM DMA・CGRAM/BG1VOFS HDMAを実行する。上下各8走査線の追加強制ブランキングを設けるが、DMA/HDMAの8チャネル共用、HDMAのフレーム先頭初期化、共有MEMの単一所有権を考慮し、表示期間のHDMA読出しとRISC-VによるSRAMへの書込みは所有権FSMで競合させない。実転送時刻と完成バッファの切替を[3Dデモ](prototypes/3d-demo/README.md)の検証条件に従って確認する。
 

@@ -1,5 +1,35 @@
 # Rev.0.9 SFC↔RISC-V通信・FIFO・IRQ
 
-電源投入後RISC-Vが外部SRAM物理0x1E000～0x1FFFFへ8KiBのSFC用BIOSを展開し、ROM形式・MEM所有権設定後にSFC /RESETを解除する。FPGAは$00:FFFC/FFFDへ00/80、$00:8000～8003へ5C/00/60/2Fの固定6バイトを返し、SFCが`JML $2F6000`を実行する。通信窓は$00–$3F/$80–$BF:$5000–$5FFF、SFC A0～A5の64アドレス周期とし、有効化レジスタでゲームROMとの競合を避ける。初期12レジスタは00 COMMAND、01 STATUS、02 REPLY、03 BUS_CONTROL、04 TX_DATA、05 RX_DATA、06 FIFO_STATUS、07 IRQ_CONTROL、08 IRQ_STATUS、09/0A LENGTH、0B ERRORとし、0C–3Fを予約する。双方向FIFOは初期各4バイトを想定する。
+電源投入後、RISC-Vが外部SRAM物理`0x1E000～0x1FFFF`へ8KiBのSFC用BIOSを展開し、ROM形式・MEM所有権設定後にSFC /RESETを解除する。FPGAは`$00:FFFC/FFFD`へ`00/80`、`$00:8000～8003`へ`5C/00/60/2F`の固定6バイトを返し、SFCは`JML $2F6000`を実行する。
 
-FPGAはSFCからの書込みをFIFO・コマンドに保存してCPUへIRQ通知し、CPUの返信値を事前にレジスタ/FIFOへ格納する。SFCの/RDサイクルを待ちCPU割り込み処理する方式は採用しない。異なるクロック領域はFIFOポインタ/ACKのCDCを実装する。IRQと必要に応じたDMA要求はAG32内蔵バスで伝達する。共通データバスのサービス枠と待機条件は[bus.md](bus.md)を参照する。
+## 通信レジスタの現行割当て
+
+通信窓は`$00–$3F/$80–$BF:$5000–$5FFF`とし、SFC A0～A5の64アドレス周期でミラーする。有効化レジスタでゲームROMとの競合を避ける。先頭13レジスタを以下のとおり定義し、`$500D～$503F`（オフセット0D～3F）を予約する。
+
+| SFCアドレス | オフセット | レジスタ | 役割 |
+|---|---|---|---|
+| `$5000` | `00` | **CPU_CONTROL** | ゲーム固有RISC-V処理の実行・停止制御 |
+| `$5001` | `01` | COMMAND | 汎用コマンド送信 |
+| `$5002` | `02` | STATUS | 汎用処理状態と停止完了通知 |
+| `$5003` | `03` | REPLY | コマンド応答 |
+| `$5004` | `04` | BUS_CONTROL | 外部MEMバス制御 |
+| `$5005` | `05` | TX_DATA | SFC→RISC-V FIFO書込み |
+| `$5006` | `06` | RX_DATA | RISC-V→SFC FIFO読出し |
+| `$5007` | `07` | FIFO_STATUS | FIFO状態 |
+| `$5008` | `08` | IRQ_CONTROL | 割り込み制御 |
+| `$5009` | `09` | IRQ_STATUS | 割り込み状態 |
+| `$500A` | `0A` | LENGTH_L | 転送長下位 |
+| `$500B` | `0B` | LENGTH_H | 転送長上位 |
+| `$500C` | `0C` | ERROR | エラー情報 |
+
+## CPU_CONTROLの動作
+
+`$5000 CPU_CONTROL`のbit0を`APP_STOP_REQ`とし、`0`でゲーム固有RISC-V処理の実行・再開、`1`で停止を要求する。リセット値は0、bit7～1は予約して書込み時は0とする。CPU_CONTROLの読出し値は保持している要求値とする。`$5002 STATUS` bit3 `APP_STOPPED`は停止完了したときに1、再開したときに0とする。停止要求と実際の停止完了は区別し、65C816はSTATUSを読み出して確認する。
+
+FPGAはCPU_CONTROLの要求を保持し、CDCを介してRISC-V共通ファームウェアへ通知する。停止対象はゲーム固有のアプリケーションであり、RISC-Vコア全体のクロック停止・リセットは行わない。停止中も共通ファームウェアはSFCコマンド受付、MEM所有権制御、電源断時のセーブデータ退避を継続する。アプリから安全に共通ファームウェアへ制御を戻す割り込み・実行境界と停止完了通知は実装時に検証する。アプリが停止中でも共通制御コマンドとバス制御は利用できる。
+
+## FIFO・IRQ・クロックドメイン
+
+双方向FIFOは初期各4バイトとする。FPGAはSFCからの書込みをFIFO・コマンドに保存してRISC-VへIRQ通知し、RISC-Vの返信値を事前にレジスタ/FIFOへ格納する。SFCの/RDサイクルをCPU割り込み処理待ちで延長しない。異なるクロック領域ではFIFOポインタ、ACK、CPU_CONTROLの要求・完了を同期する。IRQと必要に応じたDMA要求はAG32内蔵バスで伝達する。
+
+Jet/cmixer専用のSFCレジスタは設けず、ゲーム固有RISC-Vコードが共通Flashのライブラリを直接使用する。SFCとの情報交換にはCOMMAND・FIFO・IRQと共有SRAMを用いる。共有MEMのサービス枠と待機条件は[bus.md](bus.md)、アプリ停止と共通ファームウェアの役割は[firmware.md](firmware.md)を参照する。

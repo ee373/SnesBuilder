@@ -5,11 +5,12 @@
 - [ ] FPGAのROM4形式、7段階容量マスク、SRAMデコード、MEMアドレスMUX。
 - [ ] U1/U6の/OE排他、MEM D0–D7の双方向OE、U5 DIR/OEを合成・実機確認。
 - [ ] CPU→FPGA AHBメモリコントローラ、HREADYOUT、NOR/SRAM8bit、SFC優先通信。
-- [ ] $5000の64アドレス窓、FIFO、IRQ、ブート固定6バイト、内蔵FlashからのSRAM BIOS展開。
-- [ ] 共通Flashファームウェアとゲーム固有RISC-V SRAM実行のリンカ/ABI、外部NORのパッケージ配置、起動時ロード・エントリポイント移行、退避専用スタックを検証。
+- [ ] `$5000 CPU_CONTROL`（bit0停止要求、`$5002 STATUS` bit3停止完了）、`$5001 COMMAND`以降の13レジスタ、64アドレス通信窓、FIFO、IRQ、ブート固定6バイト、内蔵FlashからのSRAM BIOS展開。
+- [ ] 共通Flashファームウェア（Jet 3D、cmixer 16音を含む）とゲーム固有RISC-V SRAM実行のリンカ/ABI、外部NORのパッケージ配置、起動時ロード・エントリポイント移行、アプリ停止中のSFC通信と電源断退避、退避専用スタックを検証。
 - [ ] 64kHz/16bitステレオPCM、19bit補間、64タップ対称FIRの20×12bit 4bit逐次乗算器、96MHz 300クロック枠、8MHz 3次DSM、22kHzアナログLPFを合成・測定。
 - [ ] SlowROM200ns、FastROM120nsのSTA・実機測定と電源/CIC/リセット検証。
 - [ ] PVSnesLib HiROM/SlowROM→LoROM/Ex形式、SDK、エミュレータ。
+- [ ] Jet＋cmixerによるOSの3D起動ロゴ・64kHzステレオDSMジングル、CPU_CONTROL停止・再開・起動診断を検証。
 - [ ] 将棋AI、[3Dグラフィックスデモ](prototypes/3d-demo/README.md)（**152×104**、Mode 3・BG1 8bpp統一、通常128px＋動的RGB555 24px、上下各8走査線の強制ブランキング、約60フィールド/秒の設計目標）、[多重PCM・64kHzステレオDSM音声デモ](prototypes/audio-demo/README.md)、[USB映像転送デモ](sdk-emulator.md#カートリッジからsfc本体への映像転送)（同一PPU表示経路を使用）の実証。CGRAM 6色/走査線のHDMA更新、BG1VOFS、DMA/HDMAのチャネル共用、ブランキング境界の制御、VRAM全更新7,168B、偶奇52＋52画像ラインの実表示位置、共有MEM調停、USBフィールド同期を測定する。
 
 回路規模・ピン合法性・実機FastROMは未検証。歴史的RTLの検証結果を現行の合格根拠に使用しない。

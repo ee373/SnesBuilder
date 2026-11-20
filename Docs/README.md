@@ -9,14 +9,14 @@ AG32VF407VGT6（RISC-V＋FPGA）を1チップ制御SoCとし、SFCアドレス18
 | [level-shifters.md](level-shifters.md) | U1～U6のチャネル・DIR/OE |
 | [memory.md](memory.md) | NOR/SRAMのピン接続、ROM形式、容量マスク |
 | [bus.md](bus.md) | AHB、所有権、共通MEMデータの調停 |
-| [communication.md](communication.md) | 64アドレス通信窓、FIFO、IRQ |
-| [firmware.md](firmware.md) | 内蔵Flash共通ファームウェア・NOR格納RISC-Vイメージの内蔵SRAM実行・SRAM BIOS・電源断退避 |
-| [audio.md](audio.md) | 16bit/64kHzステレオPCM・19bit補間・64タップFIR・20×12bit逐次乗算・3次DSM・22kHzアナログLPF |
+| [communication.md](communication.md) | `$5000 CPU_CONTROL`、`$5001 COMMAND`以降の13レジスタ、64アドレス窓、FIFO、IRQ |
+| [firmware.md](firmware.md) | 内蔵Flash共通ファームウェア（Jet・cmixer16音）・RISC-Vアプリ停止/再開・NOR格納イメージのSRAM実行・SRAM BIOS・電源断退避 |
+| [audio.md](audio.md) | cmixer16音＋S-DSP8音、16bit/64kHzステレオPCM・19bit補間・64タップFIR・20×12bit逐次乗算・3次DSM・22kHzアナログLPF |
 | [power-cic.md](power-cic.md) | 電源・SRAM保持・CIC・リセット |
 | [fpga-development.md](fpga-development.md) | Supra Native、ライセンス、DAP |
 | [production.md](production.md) | Rev.0.9 BOM、PCB、販売構想 |
 | [roadmap.md](roadmap.md) | 未検証と実装工程、INT16×4 MACストレッチ目標 |
-| [prototypes/3d-demo/README.md](prototypes/3d-demo/README.md) | Rev.0.9 3Dデモ・USB共通映像方式（**152×104、BG1 8bpp 128px＋CGRAM RGB555 24px、上下各8走査線の強制ブランキング、DMA＋HDMA**）と転送・表示検証 |
+| [prototypes/3d-demo/README.md](prototypes/3d-demo/README.md) | Jetによる3D描画・OS起動ロゴ・Rev.0.9 3Dデモ・USB共通映像方式（**152×104、BG1 8bpp 128px＋CGRAM RGB555 24px、上下各8走査線の強制ブランキング、DMA＋HDMA**）と転送・表示検証 |
 | [prototypes/audio-demo/README.md](prototypes/audio-demo/README.md) | 多重PCM・EQ・エフェクト・FIR/3次DSMのデモと音質測定計画 |
 | [rom-compatibility.md](rom-compatibility.md) | 既存ROMの互換性 |
 | [sdk-emulator.md](sdk-emulator.md) | SDK、エミュレータ、カートリッジ→SFC映像転送の共通経路、USB映像モードと共通の152×104表示・強制ブランキング・DMA/HDMA同期 |

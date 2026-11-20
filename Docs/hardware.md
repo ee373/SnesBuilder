@@ -114,7 +114,7 @@ CPUのAHBメモリ窓候補は制御0x60000000、FIFO0x60001000、NOR8MiB=0x6100
 
 **MEM D0～D7はSFCとNOR/SRAMとAG32で共通のため、CPU所有中にも独立したSFC通信データバスが存在するわけではない。** SFCの$5000特殊応答前にCPU側のメモリストローブを終了・停止し、NOR/SRAM/U5/AG32の出力方向を切替する。SFCのアクセス時間を任意に延長できないため、短いMEMサービス枠、NORプログラム中のBUSY、WRAM側待機プロトコルを含むアービタを実装する。所有権FSMはISOLATE→QUIET→CONFIGURE→GUARD→OWNER、切替時はU1/U6/U5を一時無効化してMEM制御を非選択とする。
 
-内蔵Flashの共通ファームウェアが外部SRAM物理0x1E000～0x1FFFFへ8KiBのSFC用BIOSを展開し、ROM形式・MEM所有権設定後にSFC /RESETを解除する。FPGAは$00:FFFC/FFFDへ00/80、$00:8000～8003へ5C/00/60/2Fの固定6バイトを返し、SFCが`JML $2F6000`を実行する。通信窓は$00–$3F/$80–$BF:$5000–$5FFF、SFC A0～A5の64アドレス周期とし、有効化レジスタでゲームROMとの競合を避ける。初期12レジスタは00 COMMAND、01 STATUS、02 REPLY、03 BUS_CONTROL、04 TX_DATA、05 RX_DATA、06 FIFO_STATUS、07 IRQ_CONTROL、08 IRQ_STATUS、09/0A LENGTH、0B ERRORとし、0C–3Fを予約する。双方向FIFOは初期各4バイトを想定する。
+内蔵Flashの共通ファームウェアが外部SRAM物理0x1E000～0x1FFFFへ8KiBのSFC用BIOSを展開し、ROM形式・MEM所有権設定後にSFC /RESETを解除する。FPGAは$00:FFFC/FFFDへ00/80、$00:8000～8003へ5C/00/60/2Fの固定6バイトを返し、SFCが`JML $2F6000`を実行する。通信窓は$00–$3F/$80–$BF:$5000–$5FFF、SFC A0～A5の64アドレス周期とし、有効化レジスタでゲームROMとの競合を避ける。通信レジスタは00 CPU_CONTROL、01 COMMAND、02 STATUS、03 REPLY、04 BUS_CONTROL、05 TX_DATA、06 RX_DATA、07 FIFO_STATUS、08 IRQ_CONTROL、09 IRQ_STATUS、0A/0B LENGTH、0C ERRORの13本とし、0D–3Fを予約する。CPU_CONTROL bit0は0=ゲーム固有処理の実行・再開、1=停止要求、STATUS bit3は停止完了を表す。共通ファームウェアは停止中も動作し、双方向FIFOは初期各4バイトとする。詳細は[communication.md](communication.md)を参照する。
 
 ## 性能と検証
 
