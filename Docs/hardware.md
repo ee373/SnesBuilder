@@ -1,6 +1,6 @@
 # SFCBuilder Rev.0.9 ハードウェア基本仕様
 
-2026-11-19。AGM AG32VF407VGT6（LQFP100、3.3V、RV32IMAFC最大248MHz、AGRV2K約2112 LUT4）、NOR S29GL064S70TFI023（8MiB、x8、70ns）、SRAM LY62W1024SL-55SLI（128KiB、55ns）、74LVC245APW,118×5、SN74LVC8T245DBR×1、セーブ用SPI NOR GD25Q20ETIGR（256KiB）、CIC PIC12F629、USB Full-Speed、microSD SPI、ステレオDAC×2を採用する。
+2026-11-19。AGM AG32VF407VGT6（LQFP100、3.3V、RV32IMAFC最大248MHz、AGRV2K約2112 LUT4）、NOR S29GL064S70TFI023（8MiB、x8、70ns）、SRAM LY62W1024SL-55SLI（128KiB、55ns）、74LVC245APW,118×5、SN74LVC8T245DBR×1、セーブ用SPI NOR GD25Q20ETIGR（256KiB）、CIC PIC12F629、USB Full-Speed、microSD SPI、PIN29/30からのステレオ3次1bit DSM出力（受動RC＋約22kHzアクティブLPF＋MCP6002）を採用する。
 
 ## ① SFCエッジ端子
 
@@ -15,7 +15,7 @@
 | 19–22 / 50–53 | D0–D3 / D4–D7 | U5 A側 |
 | 18 | /IRQ | AG32 PIN26→オープンドレインLow回路 |
 | 26 | /RESET | 5V⇄3.3V双方向オープンドレイン変換→AG32 PIN7 |
-| 31 / 62 | AUDIO L / R | AG32 DAC0 PIN29 / DAC1 PIN30→LPF/MCP6002 |
+| 31 / 62 | AUDIO L / R | AG32 PIN29/30のFPGA DSM出力→受動RC＋約22kHzアクティブLPF/MCP6002 |
 | 24/25/55/56 | CIC | PIC12F629 |
 | 27/58、5/36 | +5V、GND | 電源・接地 |
 
@@ -48,7 +48,7 @@ U5 SN74LVC8T245DBRはVCCA PIN1=5V、VCCB PIN23/24=3.3V、GND PIN11～13、SFC D0
 | 24 | 電源断検出 POWER_FAIL入力 |
 | 25 | GPIO予備1本 |
 | 26 | SFC /IRQ用MOSFET制御 |
-| 29/30 | DAC0 L / DAC1 R |
+| 29/30 | FPGA 1bit DSM AUDIO L/R（DAC0/DAC1兼用IO） |
 | 31–36 | SFC A0–A5 |
 | 37 | BOOT1 |
 | 38/39 | SFC /RD・/WR |
@@ -114,7 +114,7 @@ CPUのAHBメモリ窓候補は制御0x60000000、FIFO0x60001000、NOR8MiB=0x6100
 
 **MEM D0～D7はSFCとNOR/SRAMとAG32で共通のため、CPU所有中にも独立したSFC通信データバスが存在するわけではない。** SFCの$5000特殊応答前にCPU側のメモリストローブを終了・停止し、NOR/SRAM/U5/AG32の出力方向を切替する。SFCのアクセス時間を任意に延長できないため、短いMEMサービス枠、NORプログラム中のBUSY、WRAM側待機プロトコルを含むアービタを実装する。所有権FSMはISOLATE→QUIET→CONFIGURE→GUARD→OWNER、切替時はU1/U6/U5を一時無効化してMEM制御を非選択とする。
 
-電源投入後RISC-Vが外部SRAM物理0x1E000～0x1FFFFへ8KiBのSFC用BIOSを展開し、ROM形式・MEM所有権設定後にSFC /RESETを解除する。FPGAは$00:FFFC/FFFDへ00/80、$00:8000～8003へ5C/00/60/2Fの固定6バイトを返し、SFCが`JML $2F6000`を実行する。通信窓は$00–$3F/$80–$BF:$5000–$5FFF、SFC A0～A5の64アドレス周期とし、有効化レジスタでゲームROMとの競合を避ける。初期12レジスタは00 COMMAND、01 STATUS、02 REPLY、03 BUS_CONTROL、04 TX_DATA、05 RX_DATA、06 FIFO_STATUS、07 IRQ_CONTROL、08 IRQ_STATUS、09/0A LENGTH、0B ERRORとし、0C–3Fを予約する。双方向FIFOは初期各4バイトを想定する。
+内蔵Flashの共通ファームウェアが外部SRAM物理0x1E000～0x1FFFFへ8KiBのSFC用BIOSを展開し、ROM形式・MEM所有権設定後にSFC /RESETを解除する。FPGAは$00:FFFC/FFFDへ00/80、$00:8000～8003へ5C/00/60/2Fの固定6バイトを返し、SFCが`JML $2F6000`を実行する。通信窓は$00–$3F/$80–$BF:$5000–$5FFF、SFC A0～A5の64アドレス周期とし、有効化レジスタでゲームROMとの競合を避ける。初期12レジスタは00 COMMAND、01 STATUS、02 REPLY、03 BUS_CONTROL、04 TX_DATA、05 RX_DATA、06 FIFO_STATUS、07 IRQ_CONTROL、08 IRQ_STATUS、09/0A LENGTH、0B ERRORとし、0C–3Fを予約する。双方向FIFOは初期各4バイトを想定する。
 
 ## 性能と検証
 
@@ -125,3 +125,9 @@ SFCの通常NOR読出しにはRISC-Vソフトウェア処理やAHBを介在さ�
 3.3V生成には既存MCP1825Sを使用し、5V側にDGH105Q5R5（5.5V・1F）を配置する。充電は47Ω・1Wで制限し、LM66100DCKR×2でSFC側への逆流防止および充電抵抗を経由しない放電経路を構成する。LMV331W5-7×1がSFC生5Vを検出し、保持3.3V基準の比較結果をAG32 PIN24のPOWER_FAILへ通知する。監視側分圧330kΩ／180kΩ、基準側100kΩ／100kΩ、出力プルアップ100kΩを使用し、監視側4.7nFのパッドは初期DNPとする。基準分圧点の追加コンデンサおよびHiCAP充電完了監視は設けない。詳細は[power-cic.md](power-cic.md)を参照する。
 
 セーブ用SPI NOR GD25Q20ETIGRはSFC用8MiB NORと独立したICであり、microSDとSPI SCK/MOSI/MISOを共有し、PIN23の独立/CSで選択する。電源投入時に128KiB×2バンクから最新正常データをSRAMへ復元し、未使用バンクを消去する。電源断時にはAG32低クロックRunで最大120KiBを退避する。SPI NOR 0.1µFデカップリングを設ける。電源断中のU5・SFC側信号・MEMバス出力の安全状態を検証する。
+
+## 内蔵Flash・RISC-V実行領域と音声回路
+
+AG32内蔵FlashはSFCBuilder共通システムファームウェア（標準SFCプログラム、フォント、起動ローダ、セーブデータ退避・復元処理、FPGA構成データ）を保持する。外部8MiB NORにはSFCゲームROMとゲーム固有のRISC-V実行イメージを同梱し、起動時に後者をAG32内蔵SRAM128KiBの専用領域へ展開してそのエントリポイントへ移行する。常駐制御用RAMとアプリケーションRAMをリンカで分離し、電源断時の退避は内蔵Flashの共通コードで実施する。詳細は[firmware.md](firmware.md)を参照する。
+
+FPGA音声系は64kHz/16bitステレオPCMを5倍線形補間（19bit）→64タップFIR（320kHz、signed 12bit係数、20×12bitの4bit逐次乗算器を左右共有、96MHz演算）→25倍線形補間→8MHzの左右独立3次1bit DSMとして出力する。DSMエッジは水晶由来8MHzを基準とし、PIN29/30から受動RC・約22kHzアクティブLPF・MCP6002を経てSFC AUDIO L/Rへ接続する。詳細は[audio.md](audio.md)を参照する。
