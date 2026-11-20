@@ -9,3 +9,9 @@ CPUのAHBメモリ窓候補は制御0x60000000、FIFO0x60001000、NOR8MiB=0x6100
 MEM制御4本はAG32 PIN61–64、U1/U6/U5の出力許可制御はPIN65–67、外部MEMデータ8本はPIN78–85を使用する。SFC A6–A11はAG32で入力しない。FPGAはROMアドレスMUX17本とU1/U6外部バッファによってMEMアドレスを構成する。
 
 SlowROM200ns以内を必須、FastROM120ns以内を設計目標とする。SFC→U1→NOR、SFC→U2/U3/U4→FPGA→NOR、SFC /ROMSEL→FPGA→NOR /CE、NOR→U5→SFCの各経路を独立して評価する。Supra Nativeの非同期I/Oタイミング制約・レポートを検証し実機測定を行う。
+
+## 映像転送における共有MEMとDMA/HDMAの排他
+
+[3Dデモ・USB映像の共通方式](sdk-emulator.md#カートリッジからsfc本体への映像転送)では、1フィールドの通常側VRAM用8bppタイル全更新7,168Bと、動的CGRAM用RGB555色情報2,496Bを共有SRAM経由で渡す。65C816は上下各8走査線の強制ブランキングおよび通常V-Blankの利用可能な期間にVRAM DMAを行い、中央208走査線ではHDMA全8チャネルをCGRAMとBG1VOFSに使用する。通常DMAとHDMAは同じ8チャネルを使用するため、DMA時のHDMA無効化・初期化・再開、SRAM所有権とバッファ完成通知を同期させる。
+
+FPGAはSFCのDMA/HDMA用SRAM読み出しに必要なMEMサービス枠を確保し、RISC-Vが次フィールドの素材を生成していても、表示中のSFCアクセスを妨げないように調停する。映像の完成前にDMAを開始せず、HDMAが参照するデータをRISC-Vが更新しない。上側ブランキングのDMA利用方法、実効転送時間、可視期間のCGRAM書込みタイミングは[3Dデモの検証条件](prototypes/3d-demo/README.md#6-検証手順と合格条件)に従い、実装・実機検証で確定する。
