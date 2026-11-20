@@ -10,7 +10,7 @@
 - [ ] 64kHz/16bitステレオPCM、19bit補間、64タップ対称FIRの20×12bit 4bit逐次乗算器、96MHz 300クロック枠、8MHz 3次DSM、22kHzアナログLPFを合成・測定。
 - [ ] SlowROM200ns、FastROM120nsのSTA・実機測定と電源/CIC/リセット検証。
 - [ ] PVSnesLib HiROM/SlowROM→LoROM/Ex形式、SDK、エミュレータ。
-- [ ] 将棋AI、[3Dグラフィックスデモ](prototypes/3d-demo/README.md)（本命: Mode 3・BG1 8bpp統一、116×112／124×112・約60フィールド/秒の設計目標。CGRAM HDMAの実書込時間、BG1VOFS、インターレース表示位置を最初に検証）、[多重PCM・64kHzステレオDSM音声デモ](prototypes/audio-demo/README.md)、USB配信デモの実証。
+- [ ] 将棋AI、[3Dグラフィックスデモ](prototypes/3d-demo/README.md)（本命: Mode 3・BG1 8bpp統一、116×112／124×112・約60フィールド/秒の設計目標。CGRAM HDMAの実書込時間、BG1VOFS、インターレース表示位置を最初に検証）、[多重PCM・64kHzステレオDSM音声デモ](prototypes/audio-demo/README.md)、[USB映像転送デモ](sdk-emulator.md#カートリッジからsfc本体への映像転送)（3Dデモと同じMode 3・BG1 8bpp統一／V-Blank DMA＋CGRAM・BG1VOFS HDMAを採用し、USB入力・共有SRAM・65C816転送の同期と帯域を実測）の実証。
 
 回路規模・ピン合法性・実機FastROMは未検証。歴史的RTLの検証結果を現行の合格根拠に使用しない。
 
