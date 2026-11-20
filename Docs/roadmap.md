@@ -1,11 +1,13 @@
 # Rev.0.9 実装・検証計画
 
-- [ ] AG32の固定機能と75/78使用・予約I/OのSupra Nativeピンフィッティング。
+- [ ] AG32の固定機能と77/78使用・予約I/OのSupra Nativeピンフィッティング。
 - [ ] Prepare LOGIC生成トップのAHB・IRQ・DMA/クロック・リセット接続。
 - [ ] FPGAのROM4形式、7段階容量マスク、SRAMデコード、MEMアドレスMUX。
 - [ ] U1/U6の/OE排他、MEM D0–D7の双方向OE、U5 DIR/OEを合成・実機確認。
 - [ ] CPU→FPGA AHBメモリコントローラ、HREADYOUT、NOR/SRAM8bit、SFC優先通信。
-- [ ] $5000の64アドレス窓、FIFO、IRQ、ブート固定6バイト、SRAM BIOS。
+- [ ] $5000の64アドレス窓、FIFO、IRQ、ブート固定6バイト、内蔵FlashからのSRAM BIOS展開。
+- [ ] 共通Flashファームウェアとゲーム固有RISC-V SRAM実行のリンカ/ABI、外部NORのパッケージ配置、起動時ロード・エントリポイント移行、退避専用スタックを検証。
+- [ ] 64kHz/16bitステレオPCM、19bit補間、64タップ対称FIRの20×12bit 4bit逐次乗算器、96MHz 300クロック枠、8MHz 3次DSM、22kHzアナログLPFを合成・測定。
 - [ ] SlowROM200ns、FastROM120nsのSTA・実機測定と電源/CIC/リセット検証。
 - [ ] PVSnesLib HiROM/SlowROM→LoROM/Ex形式、SDK、エミュレータ。
 - [ ] 将棋AI、[3Dグラフィックスデモ](prototypes/3d-demo/README.md)、[多重PCM・64kHzステレオDSM音声デモ](prototypes/audio-demo/README.md)、USB配信デモの実証。

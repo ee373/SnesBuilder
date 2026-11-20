@@ -1,6 +1,6 @@
 # SFCBuilder Rev.0.9 現行仕様の正本
 
-AG32VF407VGT6（RISC-V＋FPGA）を1チップ制御SoCとし、SFCアドレス18本専用入力＋SFC A6～A11の外部バッファ6本、MEMアドレス23本、共通MEMデータ8本を使用する。U1～U4/U6=74LVC245A×5、U5=SN74LVC8T245×1。GPIOは使用・予約75/78、予備3本。FPGA開発はAGM Supra Nativeを使用する。
+AG32VF407VGT6（RISC-V＋FPGA）を1チップ制御SoCとし、SFCアドレス18本専用入力＋SFC A6～A11の外部バッファ6本、MEMアドレス23本、共通MEMデータ8本を使用する。U1～U4/U6=74LVC245A×5、U5=SN74LVC8T245×1。GPIOは使用・予約77/78、予備1本（[hardware.md](hardware.md)と[pinout.csv](pinout.csv)に従う）。FPGA開発はAGM Supra Nativeを使用する。
 
 | 現行ファイル | 内容 |
 |---|---|
@@ -10,14 +10,14 @@ AG32VF407VGT6（RISC-V＋FPGA）を1チップ制御SoCとし、SFCアドレス18
 | [memory.md](memory.md) | NOR/SRAMのピン接続、ROM形式、容量マスク |
 | [bus.md](bus.md) | AHB、所有権、共通MEMデータの調停 |
 | [communication.md](communication.md) | 64アドレス通信窓、FIFO、IRQ |
-| [firmware.md](firmware.md) | RISC-Vローダ・SRAM BIOS・ブート |
-| [audio.md](audio.md) | 64kHzステレオPCM・1bit DSM・DAC比較・DSP・PIN29/30音声出力 |
+| [firmware.md](firmware.md) | 内蔵Flash共通ファームウェア・NOR格納RISC-Vイメージの内蔵SRAM実行・SRAM BIOS・電源断退避 |
+| [audio.md](audio.md) | 16bit/64kHzステレオPCM・19bit補間・64タップFIR・20×12bit逐次乗算・3次DSM・22kHzアナログLPF |
 | [power-cic.md](power-cic.md) | 電源・SRAM保持・CIC・リセット |
 | [fpga-development.md](fpga-development.md) | Supra Native、ライセンス、DAP |
 | [production.md](production.md) | Rev.0.9 BOM、PCB、販売構想 |
 | [roadmap.md](roadmap.md) | 未検証と実装工程、INT16×4 MACストレッチ目標 |
 | [prototypes/3d-demo/README.md](prototypes/3d-demo/README.md) | Rev.0.9のRISC-V性能を用いた3Dデモ構想、解像度・FPS・VRAM転送検証 |
-| [prototypes/audio-demo/README.md](prototypes/audio-demo/README.md) | 多重PCM・5バンドEQ・エフェクト・64kHzステレオDSMのデモと音質測定計画 |
+| [prototypes/audio-demo/README.md](prototypes/audio-demo/README.md) | 多重PCM・EQ・エフェクト・FIR/3次DSMのデモと音質測定計画 |
 | [rom-compatibility.md](rom-compatibility.md) | 既存ROMの互換性 |
 | [sdk-emulator.md](sdk-emulator.md) | SDK、USB連携、エミュレータ |
 | [references.md](references.md) | 参照資料 |
