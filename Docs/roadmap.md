@@ -10,7 +10,7 @@
 - [ ] 64kHz/16bitステレオPCM、19bit補間、64タップ対称FIRの20×12bit 4bit逐次乗算器、96MHz 300クロック枠、8MHz 3次DSM、22kHzアナログLPFを合成・測定。
 - [ ] SlowROM200ns、FastROM120nsのSTA・実機測定と電源/CIC/リセット検証。
 - [ ] PVSnesLib HiROM/SlowROM→LoROM/Ex形式、SDK、エミュレータ。
-- [ ] 将棋AI、[3Dグラフィックスデモ](prototypes/3d-demo/README.md)、[多重PCM・64kHzステレオDSM音声デモ](prototypes/audio-demo/README.md)、USB配信デモの実証。
+- [ ] 将棋AI、[3Dグラフィックスデモ](prototypes/3d-demo/README.md)（本命: Mode 3・BG1 8bpp統一、116×112／124×112・約60フィールド/秒の設計目標。CGRAM HDMAの実書込時間、BG1VOFS、インターレース表示位置を最初に検証）、[多重PCM・64kHzステレオDSM音声デモ](prototypes/audio-demo/README.md)、USB配信デモの実証。
 
 回路規模・ピン合法性・実機FastROMは未検証。歴史的RTLの検証結果を現行の合格根拠に使用しない。
 
