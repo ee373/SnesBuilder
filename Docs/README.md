@@ -1,49 +1,59 @@
-# SFCBuilder Rev.0.9 — AGM AG32VF407VGT6 現行仕様
+# SFCBuilder Rev.0.9 — 現行AGM設計ドキュメント
 
-SFCBuilderはSFC/SNES用のRISC-V＋FPGA拡張カートリッジである。現行構成は **AGM AG32VF407VGT6（AGRV2KL100）**、8 MiBパラレルNOR、128 KiB外部SRAM、256 KiBセーブ用SPI NOR、USB Full-Speed、microSD SPI、追加ステレオ音声、外付けバス変換ICで構成する。現行実装の基準はAGM向けのFPGAプロジェクトと配置配線検証記録とする。
+本ディレクトリは **AGM AG32VF407VGT6（AGRV2KL100）** を使用するSFC/SNES拡張カートリッジの現行仕様を扱う。設計の全体像は[アーキテクチャ](architecture/overview.md)、旧文書の各記載項目をどこへ移したかは[記載項目別参照表](reference-map.md)で確認する。
 
-## 仕様の優先順位と実装状態
+## 仕様の管理方法
 
-仕様書間で記述が異なる場合、**AG32向けの実装については [fpga/rtl](../fpga/rtl/) と [fpga/top.ve](../fpga/top.ve) および [fpga/timing.sdc](../fpga/timing.sdc) を優先**する。RISC-Vのゲームローダ、BIOS、SDK、実機未検証の周辺回路は本ディレクトリの設計仕様を基準とする。実装済みRTLの機能と、ソフトウェア・基板・音響を含む製品全体の完成は区別する。
+**一つの仕様項目は一つの正本ファイルで管理する。** 他文書では信号名・容量・レジスタ値・部品ピン番号などの表を重複して転記せず、その正本へリンクする。旧文書24ファイルは元の階層を維持して[old/](old/)へ退避した。旧文書は変更前の履歴資料であり、現行仕様の参照には使用しない。現在の実装と設計予定は明確に区別する。
 
-| 対象 | 現行値／状態 |
+AG32 FPGAの実装済み機能については[RTL](../fpga/rtl/)、[ピン・IPのトップ定義](../fpga/top.ve)、[タイミング制約](../fpga/timing.sdc)、[ビルド手順](../fpga/build.ps1)を実装の基準とし、シミュレーション・配置配線の結果は[検証記録](verification/README.md)で管理する。共通ファームウェア、PCB、SFC実機、Jet/cmixer、USB映像、将棋AIはそれぞれの設計・実証状況に従う。
+
+## アーキテクチャ
+
+- [システム構成と仕様境界](architecture/overview.md)：RISC-V／FPGA／SFCの責務、主なクロックとデータ経路を説明する。
+
+## ハードウェア：`hardware/`
+
+| 正本 | 記載項目 |
 |---|---|
-| CPU | RV32IMAFC、**本番ビルド240 MHz**（型番仕様上の最大値248 MHz） |
-| FPGAバス・FIR | **80 MHz** |
-| DSM | **8 MHz**、水晶基準 |
-| SFCアドレス | 専用入力18本＋U1の外付け6本 |
-| MEMアドレス／データ | 23 bit／双方向8 bit。U1・U6で所有権を切替 |
-| FPGAバス・AHB・FIFO・ROM制御 | 現行RTLが存在し、シミュレーション・Supra Nativeの配置配線・STAを実施 |
-| FPGAステレオ音声 | 64 kHz・16 bit PCM、80 MHzポリフェーズFIR、320 kHz・17 bit、8 MHz 3次1 bit DSM。RTL検証・配置配線済み |
-| 配置配線結果 | 2026-11-20時点、最小セットアップ **+0.220 ns**、最小ホールド **+0.080 ns**。条件は検証文書を参照 |
-| 基板・FastROM・アナログ音声 | 実機検証前。STA結果だけで外部基板上の成立を保証しない |
-| 共通ファームウェア・Jet・cmixer・SFC BIOS | ソフトウェアの設計仕様。完成済みの統合ファームウェアとしては扱わない |
-| 152×104映像・USB転送・将棋AI | ソフトウェア／表示の実証計画 |
+| [SFC・AG32インターフェース](hardware/interface.md) | SFCエッジ端子、AG32の機能群、FPGAとCPUの接続 |
+| [AG32 100ピン割当て](hardware/pinout.csv) | 物理ピン番号、信号、入出力区分 |
+| [レベル変換とOE](hardware/level-shifters.md) | U1～U6、方向・出力許可と競合防止 |
+| [NOR・SRAM物理配線](hardware/memory-devices.md) | 8 MiBパラレルNOR、128 KiB SRAMとデバイス端子 |
+| [セーブストレージ](hardware/save-storage.md) | SPI NORの配線、/CS、128 KiB×2バンクと保存領域 |
+| [電源・POWER_FAIL](hardware/power.md) | LDO、HiCAP、充放電経路、比較器と検出しきい値 |
+| [CIC・RESET・IRQ](hardware/cic-reset.md) | SFCのリセット、割り込み、SuperCIC |
 
-## ハードウェア・FPGA
+## FPGA：`fpga/`
 
-- [hardware.md](hardware.md)：AG32VF407VGT6、SFC接続、NOR/SRAM、レベル変換と電源。
-- [pinout.csv](pinout.csv)：100ピンの割当て正本。実際のFPGA入出力は [fpga/top.ve](../fpga/top.ve) と対照する。
-- [level-shifters.md](level-shifters.md)：U1～U6の方向と出力許可、A6～A11の所有権。
-- [memory.md](memory.md)：8 MiB NOR／128 KiB SRAM、ROMマッピング、セーブ用256 KiB SPI NOR。
-- [bus.md](bus.md)：MEM所有権、AHBアドレス、WRAM待機、NOR BUSY、POWER_FAIL。
-- [communication.md](communication.md)：SFC $5000系13レジスタ、RISC-V側MMIO、4バイトFIFO、IRQ。
-- [audio.md](audio.md)：**本番実装の80 MHzポリフェーズFIR**と8 MHz DSM、PCM MMIO、アナログ段。
-- [power-cic.md](power-cic.md)：5 V→3.3 V、電源断検出と二重セーブ、CIC。
-- [fpga-development.md](fpga-development.md)：Supra Native・AgRV SDK・ビルド・デバッグ。
-- [verification/README.md](verification/README.md)：現行本番ビルドの検証一覧。
-- [verification/ahb-interface.md](verification/ahb-interface.md)：AHB周期とタイミング数値。
+| 正本 | 記載項目 |
+|---|---|
+| [開発・ビルド](fpga/development.md) | AgRV SDK、Prepare LOGIC、Supra Nativeとクロック構成 |
+| [AHB・MEMバス](fpga/bus.md) | CPU MMIOアドレス、共通MEM所有権、WRAM待機、NOR BUSY、POWER_FAIL |
+| [SFC通信・FIFO・IRQ](fpga/communication.md) | `$5000`系13レジスタ、停止要求、REPLY、FIFO |
+| [ROM互換・マッピング](fpga/rom-mapping.md) | HiROM/LoROM/Ex形式、ROM_SIZE、SRAM・BIOS窓 |
+| [PCM・FIR・DSM](fpga/audio.md) | 64 kHz PCM、80 MHz FIR、8 MHz 3次DSM、音声出力 |
 
-## ソフトウェア・製造
+## ファームウェア：`firmware/`
 
-- [firmware.md](firmware.md)：共通ファームウェア、SRAM実行アプリ、BIOS起動、電源断処理。
-- [rom-compatibility.md](rom-compatibility.md)：HiROM／LoROM／Ex形式と互換性検証。
-- [sdk-emulator.md](sdk-emulator.md)：SDK、エミュレータ、USB／3D共通のSFC映像転送。
-- [prototypes/3d-demo/README.md](prototypes/3d-demo/README.md)：Jetを使用した152×104の描画・表示検証。
-- [prototypes/audio-demo/README.md](prototypes/audio-demo/README.md)：cmixerと既存FPGA音声RTLの結合・音響測定。
-- [prototypes/shogi-ai/README.md](prototypes/shogi-ai/README.md)：RISC-V将棋AI・NNUE検証。
-- [roadmap.md](roadmap.md)：実装済み・未実装と次の実機検証。
-- [production.md](production.md)：Rev.0.9のBOM、PCB、製造計画。
-- [references.md](references.md)：現行部品・ツールとSFC資料。
+| 正本 | 記載項目 |
+|---|---|
+| [起動・BIOS・リンカ](firmware/boot.md) | 内蔵Flash、内蔵SRAM、SFC BIOS、起動順序、GCC/ABI |
+| [ゲームパッケージ](firmware/game-package.md) | SFC ROM・RISC-V実行イメージ・リソースのNOR内配置 |
+| [アプリ実行・停止](firmware/application.md) | ゲーム固有処理、Jet/cmixer共通ABI、停止・再開 |
+| [音声ソフトウェア](firmware/audio-runtime.md) | cmixer、追加DSP、16音、RAM・音源供給 |
+| [バックアップ処理](firmware/backup.md) | 電源断退避、2バンク復元、動作継続条件と解除 |
 
-旧アーキテクチャの実験資料と現在採用していないRTLは現行Docsから削除した。変更履歴はGitコミットで参照する。
+## SDK・実証・検証・製造
+
+- [SDK・エミュレータ・USB](software/sdk-emulator.md)：PVSnesLib、AG32 SDK、エミュレータ拡張と共通映像転送を扱う。
+- [3D・152×104表示デモ](prototypes/graphics.md)：Jet、Mode 3、VRAM DMA、CGRAM/BG1VOFS HDMAの実証設計を記載する。
+- [追加音声デモ](prototypes/audio-demo.md)：cmixer・PCM・DSM・アナログ音声の試験段階を記載する。
+- [将棋AI実証](prototypes/shogi/README.md)：全体設計を示し、[SFC/RISC-V通信](prototypes/shogi/interface.md)、[NNUE配置](prototypes/shogi/nnue.md)、[工程](prototypes/shogi/milestones.md)を参照する。
+- [FPGA本番検証](verification/README.md)：合成・STA・RTL試験の結果と、実機未検証の項目を記録する。
+- [AHB詳細とタイミング](verification/ahb.md)：バス信号、応答周期、クロック境界、タイミング余裕を記録する。
+- [ロードマップ](planning/roadmap.md)：実装完了項目とソフトウェア・実機の次工程を管理する。
+- [BOM・製造](planning/production.md)：採用部品、PCB条件、試作・量産計画を管理する。
+- [外部参照資料](references.md)：AGM／SFC／現行部品／ライブラリの一次資料を案内する。
+
+旧文書と移動先の対応は[記載項目別参照表](reference-map.md)に集約する。

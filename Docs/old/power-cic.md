@@ -2,7 +2,7 @@
 
 ## 電源構成
 
-SFCカートリッジ端子の生5Vを `SFC_5V_RAW` とし、TI LM66100DCKR（SFC側逆流防止）を経由した内部5Vを `SYS_5V` とする。MCP1825S-3302E/DB（SOT-223、3.3V／500mA）を維持し、`SYS_5V` から3.3Vを生成する。AG32、外部8MiB NOR、128KiB SRAM、256KiB SPI NOR、microSD、U1～U4/U6およびU5の3.3V側へ給電する。U5の5V側はSFC側給電と電源断時の分離条件を満たすよう接続する。入力バルクCL32A476KOJNNNE（47µF/16V）、LDO入出力4.7µF、各IC近傍0.1µFなどを設ける。AG32のVBAT/VDDA/VREFPおよび8MHz水晶はメーカー指定の接続を守る。
+SFCカートリッジ端子の生5Vを `SFC_5V_RAW` とし、TI LM66100DCKR（SFC側逆流防止）を経由した内部5Vを `SYS_5V` とする。MCP1825S-3302E/DB（SOT-223、3.3V／500mA）を使用し、`SYS_5V` から3.3Vを生成する。AG32、外部8MiB NOR、128KiB SRAM、256KiB SPI NOR、microSD、U1～U4/U6およびU5の3.3V側へ給電する。U5の5V側はSFC側給電と電源断時の分離条件を満たすよう接続する。入力バルクCL32A476KOJNNNE（47µF/16V）、LDO入出力4.7µF、各IC近傍0.1µFなどを設ける。AG32のVBAT/VDDA/VREFPおよび8MHz水晶はメーカー指定の接続を守る。
 
 ## HiCAPの充放電
 

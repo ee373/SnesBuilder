@@ -1,6 +1,6 @@
 # Rev.0.9 — AGM構成の設計根拠と外部資料
 
-この一覧はAG32VF407VGT6／AGRV2KL100を採用した現行Rev.0.9の外部資料である。現行RTL、ピン配置、クロック、MMIOの一次参照先は本リポジトリの[FPGAプロジェクト](../fpga/README.md)、[top.ve](../fpga/top.ve)、[RTL](../fpga/rtl/)および[検証記録](verification/README.md)とする。
+この一覧はAG32VF407VGT6／AGRV2KL100を採用した現行Rev.0.9の外部資料である。現行RTL、ピン配置、クロック、MMIOの一次参照先は本リポジトリの[FPGAプロジェクト](../fpga/README.md)、[top.ve](../fpga/top.ve)、[RTL](../fpga/rtl)および[検証記録](verification/README.md)とする。
 
 ## SoC・開発環境
 
@@ -22,7 +22,7 @@
 - [Nexperia 74LVC245A](https://www.nexperia.com/products/analog-logic-ics/logic/buffers-inverters-transceivers/transceivers/serie/74lvc245a-74lvch245a)：U1～U4/U6
 - [TI SN74LVC8T245データシート](https://www.ti.com/lit/ds/symlink/sn74lvc8t245.pdf)：U5
 - [Infineon S29GL064S 8MiB NOR](https://www.infineon.com/part/S29GL064S70TFI023)
-- 外部SRAM：**Lyontek LY62W1024SL-55SLI（128KiB、55ns）**。部品型番・ピン配列は[hardware.md](hardware.md)と[memory.md](memory.md)を参照。
+- 外部SRAM：**Lyontek LY62W1024SL-55SLI（128KiB、55ns）**。部品型番・ピン配列は[hardware.md](hardware/interface.md)と[memory.md](hardware/memory-devices.md)を参照。
 - [MCP1825S 3.3V LDO](https://www.microchip.com/en-us/product/mcp1825s)
 - [MCP6002オペアンプ](https://www.microchip.com/en-us/product/mcp6002)
 
@@ -31,4 +31,4 @@
 - [Jet C++17ソフトウェア3Dレンダラー](https://github.com/CubeCoders/Jet)
 - [cmixer PCMミキサー](https://github.com/rxi/cmixer)
 
-旧CPU向けの代替SoC資料や部品リンクは削除した。実際の回路設計・部品購入時は採用型番のメーカー最新データシートを確認する。
+回路設計・部品購入時は採用型番のメーカー最新データシートを確認する。

@@ -4,4 +4,4 @@ SFC/SNES向け **AGM AG32VF407VGT6（RISC-V＋FPGA）** 拡張開発カートリ
 
 現行AG32向けのFPGA RTLは合成・配置配線・STAとテストベンチ検証を実施済み。SFC実機のROMタイミング、基板・電源・アナログ音声と、ゲーム固有RISC-Vファームウェア・Jet/cmixer・USB映像の統合は継続検証項目とする。
 
-[現行設計仕様](Docs/README.md) · [FPGAプロジェクト](fpga/README.md) · [検証記録](Docs/verification/README.md) · [実装ロードマップ](Docs/roadmap.md)
+[現行設計仕様](Docs/README.md) · [FPGAプロジェクト](fpga/README.md) · [検証記録](Docs/verification/README.md) · [実装ロードマップ](Docs/planning/roadmap.md)
