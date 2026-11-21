@@ -27,8 +27,11 @@
 | FPGAテスト・配置配線・STA結果 | [old/hardware.md](old/hardware.md)：性能と検証、[old/verification/README.md](old/verification/README.md) | [検証サマリー](verification/README.md) |
 | AHBサイクル・クロック境界・タイミング制約詳細 | [old/verification/ahb-interface.md](old/verification/ahb-interface.md) | [AHB詳細](verification/ahb.md) |
 | 製造・BOM・PCB、価格仮定 | [old/production.md](old/production.md) | [製造・BOM](planning/production.md) |
+| 3D／USB共通の152×104画像、HDMA・DMA・CGRAM、表示性能の仮定 | [old/prototypes/3d-demo/README.md](old/prototypes/3d-demo/README.md)、[old/sdk-emulator.md](old/sdk-emulator.md)：共通画像形式・転送量 | [共通表示仕様](prototypes/graphics.md) |
+| USB映像受信・データ同期、エミュレータ拡張 | [old/sdk-emulator.md](old/sdk-emulator.md)：SDK・USB連携 | [SDK・エミュレータ](software/sdk-emulator.md) |
+| 将棋専用コマンドと共通通信レジスタの区別 | [old/prototypes/shogi-ai/integration.md](old/prototypes/shogi-ai/integration.md) | [将棋固有コマンド](prototypes/shogi/interface.md)、[13レジスタの正本](fpga/communication.md) |
 
-## 文書全体を移動したもの
+## 主要章を維持して再配置した文書
 
 | 旧文書 | 現行文書 | 主な項目 |
 |---|---|---|
@@ -51,4 +54,4 @@
 | [old/verification/README.md](old/verification/README.md) | [verification/README.md](verification/README.md) | RTL・STA合否 |
 | [old/verification/ahb-interface.md](old/verification/ahb-interface.md) | [verification/ahb.md](verification/ahb.md) | AHB検証詳細 |
 
-原文を分割した対象は`hardware.md`、`memory.md`、`power-cic.md`、`firmware.md`、`audio.md`と、全体索引の`README.md`である。これらは上表の項目ごとに新しいファイルへ移し、重複する端子・マップ・電源・試験数値については新正本への参照へ変更した。
+重複した数値・レジスタ表を参照リンクに置換した対象には、製造、SDK・USB映像、将棋通信、検証サマリーも含む。原文を分割した対象は`hardware.md`、`memory.md`、`power-cic.md`、`firmware.md`、`audio.md`と、全体索引の`README.md`である。これらは上表の項目ごとに新しいファイルへ移し、重複する端子・マップ・電源・試験数値については新正本への参照へ変更した。
