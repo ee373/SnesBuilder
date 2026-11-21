@@ -2,7 +2,7 @@
 
 2026-11-21現行。AGM AG32VF407VGT6（LQFP100、3.3V、RV32IMAFC最大248MHz、AGRV2K約2112 LUT4）、NOR S29GL064S70TFI023（8MiB、x8、70ns）、SRAM LY62W1024SL-55SLI（128KiB、55ns）、74LVC245APW,118×5、SN74LVC8T245DBR×1、セーブ用SPI NOR GD25Q20ETIGR（256KiB）、CIC PIC12F629、USB Full-Speed、microSD SPI、PIN29/30からのステレオ3次1bit DSM出力（受動RC＋約22kHzアクティブLPF＋MCP6002）を採用する。
 
-## ① SFCエッジ端子
+## SFCエッジ端子
 
 | SFC端子 | 信号 | 接続 |
 |---|---|---|
@@ -19,7 +19,7 @@
 | 24/25/55/56 | CIC | PIC12F629 |
 | 27/58、5/36 | +5V、GND | 電源・接地 |
 
-## ② レベル変換・3SB
+## レベル変換・3SB
 
 74LVC245APW,118（U1–U4、U6）はTSSOP20、VCC PIN20=3.3V、GND PIN10、DIR PIN1=High（A→B）。CH0～7のA側ピンは2,3,4,5,6,7,8,9、B側ピンは18,17,16,15,14,13,12,11。未使用A入力はGND、対応B出力はNC。U2～U4の/OEはGND固定、U1/U6の/OEは3.3Vへプルアップする。
 
@@ -35,7 +35,7 @@ U1とU6のB側CH0～5を同一MEM A11～A6へ接続する。SFC所有時にはU1
 
 U5 SN74LVC8T245DBRはVCCA PIN1=5V、VCCB PIN23/24=3.3V、GND PIN11～13、SFC D0～D7→A側PIN3～10、MEM D0～D7→B側PIN21～14。DIR PIN2=SFC /RD（LowでMEM→SFC、HighでSFC→MEM）。/OE PIN22は5Vプルアップ、AG32 PIN67→N-MOSFETによるLow駆動で有効化する。AG32のMEM D0～D7はU5・NOR・SRAMと物理共通であり、FPGAの双方向出力許可を引き続き必要とする。
 
-## ④ SoCの固定機能と物理ピン
+## SoCの固定機能と物理ピン
 
 | AG32 PIN | 役割 |
 |---|---|
@@ -70,41 +70,11 @@ U5 SN74LVC8T245DBRはVCCA PIN1=5V、VCCB PIN23/24=3.3V、GND PIN11～13、SFC D0
 
 BOOT0=94・BOOT1=37は通常Low、UART復旧時に設定変更可能。JTAG兼用PIN77/89/90はSWDを確保したうえでGPIOへ設定する。MEMアドレス23本、SFCアドレス専用18本、データ8本、SFC制御5本、MEM制御4本、変換OE3本、SD4本、USB3本、DSM音声出力2本、UART2本、SWD2本、BOOT1予約1本を合計して**77本、予備1本**とする（従来75本にSPI NOR /CS・POWER_FAIL入力を追加）。固定電源/NC端子を含む100ピン表は[pinout.csv](pinout.csv)が正本である。
 
-## ③ 外部メモリ
+## 外部メモリとROM形式
 
-NORはS29GL064S70TFI023（8MiB、x8、70ns、TSOP56）、SRAMはLY62W1024SL-55SLI（128KiB、55ns、SOIC32）。3.3V共通MEM A0～A22・D0～D7を使用する。NOR BYTE# PIN53=GNDに固定し、MEM A0→NOR DQ15/A-1、MEM A1～A22→NOR A0～A21に1bitシフトして接続する。
+外部パラレルNORはS29GL064S70TFI023（8 MiB、x8、70 ns、TSOP56）、SRAMはLY62W1024SL-55SLI（128 KiB、55 ns、SOIC32）とし、3.3 Vの共通MEM A0～A22・D0～D7へ接続する。NORはBYTE#をLowとし、MEM A0をNORのDQ15/A-1、MEM A1～A22をNOR A0～A21へ1 bitずらして配線する。SRAMはMEM A0～A12およびA16～A19を使用する。NOR /CE、SRAM /CE、共通/OE・/WEはAG32 PIN61～64で制御する。**NOR・SRAMのデータ端子・アドレス端子・制御端子の物理ピン表は[memory.md](memory.md)に集約し、本書では重複管理しない。** AG32側100ピン割当ては[pinout.csv](pinout.csv)を正本とする。
 
-| MEM | NOR信号 | NOR物理PIN |
-|---|---|---:|
-| A0 | DQ15/A-1 | 51 |
-| A1 | A0 | 31 |
-| A2 | A1 | 26 |
-| A3 | A2 | 25 |
-| A4 | A3 | 24 |
-| A5 | A4 | 23 |
-| A6 | A5 | 22 |
-| A7 | A6 | 21 |
-| A8 | A7 | 20 |
-| A9 | A8 | 10 |
-| A10 | A9 | 9 |
-| A11 | A10 | 8 |
-| A12 | A11 | 7 |
-| A13 | A12 | 6 |
-| A14 | A13 | 5 |
-| A15 | A14 | 4 |
-| A16 | A15 | 3 |
-| A17 | A16 | 54 |
-| A18 | A17 | 19 |
-| A19 | A18 | 18 |
-| A20 | A19 | 11 |
-| A21 | A20 | 12 |
-| A22 | A21 | 15 |
-
-NOR DQ0～7物理PIN35,37,39,41,44,46,48,50をMEM D0～D7へ、/CE PIN32←AG32 PIN61、/OE PIN34←PIN63、/WE PIN13←PIN64、VCC PIN43・VIO PIN29は3.3V。/RESET PIN14は通常High、WP#/ACC PIN16は通常動作電位に設定する。
-
-SRAM A0～A12←MEM A0～A12、SRAM A13～A16←MEM A16～A19。SRAM /CE1 PIN22←AG32 PIN62、/OE PIN24←PIN63、/WE PIN29←PIN64、CE2 PIN30は3.3Vへ接続し、電源断時の書込み停止・復元時の選択制御はAG32/FPGAのMEM制御で扱う。SRAM D0～7物理PIN13,14,15,17,18,19,20,21←MEM D0～7、VCC PIN32は3.3V、GND PIN16=GND。SRAMアドレス物理端子はA0=12、A1=11、A2=10、A3=9、A4=8、A5=7、A6=6、A7=5、A8=27、A9=26、A10=23、A11=25、A12=4、A13=28、A14=3、A15=31、A16=2。
-
-FPGAがHiROM/LoROM/ExHiROM/ExLoROMをデコードする。ROM_SIZEの7段階は128KiB（物理A17–A22を0）、256KiB（A18–A22を0）、512KiB（A19–A22）、1MiB（A20–A22）、2MiB（A21–A22）、4MiB（A22）、8MiB（マスクなし）とする。非2冪ROMはローダが元ROMの反復規則に沿ってNORへ事前展開する。SRAMにROMマスクは適用しない。HiROM基本アドレスはMEM A0–A21←SFC A0–A21、LoROM基本はMEM A0–A14←SFC A0–A14、MEM A15–A21←SFC A16–A22とし、MEM A22をEx領域の選択に使用する。WRAM/IO/特殊領域とSRAMの優先デコードも行う。SRAM物理0x1E000～0x1FFFFの8KiBへBIOSを配置する。
+FPGAはLoROM・HiROM・ExLoROM・ExHiROM、128 KiB～8 MiBの7段階の容量マスク、WRAM/IOとセーブSRAMの優先デコードを実装する。非2冪容量のROMはローダが内容をNORへ事前展開し、RISC-VのAHB物理NORアクセスにはROMサイズマスクを掛けない。外部SRAM物理`0x1E000～0x1FFFF`の8 KiBは起動時のSFC BIOS領域とし、ゲーム実行後はBIOSオーバーレイを解除できる。電源断バックアップの対象は外部SRAM先頭120 KiBである。ROMのデコードと容量条件は[rom-compatibility.md](rom-compatibility.md)に、AHBの実装範囲は[bus.md](bus.md)に記載する。
 
 ## AG32内蔵FPGAとRISC-Vの接続
 
