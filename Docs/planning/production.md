@@ -40,7 +40,7 @@ LMV331の基準電圧分圧点には追加コンデンサを設けない。監�
 
 ## 電源・保存動作
 
-外部SRAMのセーブ対象120KiBを、AG32が電源断時に専用SPI NORへ保存する。SPI NORは128KiB×2バンク構成とし、起動時に正常な最新世代をSRAMへ復元して未使用バンクを消去する。電源断時はHiCAPからMCP1825Sへ給電し、AG32低クロックRunで退避処理を実行する。回路上の配線・動作条件は[power-cic.md](../hardware/power.md)、メモリ領域は[memory.md](../hardware/memory-devices.md)を正本とする。
+電源・HiCAP・充放電・POWER_FAIL検出は[電源回路](../hardware/power.md)、保存用SPI NORのバンクと/CSは[セーブストレージ](../hardware/save-storage.md)、電源断退避・起動時復元のアルゴリズムは[バックアップファームウェア](../firmware/backup.md)を正本とする。本BOMではこれらに必要な部品と実装条件を管理し、保存容量・制御手順の重複記述を置かない。
 
 ## 原価・製造
 
