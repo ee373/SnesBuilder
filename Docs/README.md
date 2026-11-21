@@ -1,6 +1,6 @@
 # SFCBuilder Rev.0.9 — AGM AG32VF407VGT6 現行仕様
 
-SFCBuilderはSFC/SNES用のRISC-V＋FPGA拡張カートリッジである。現行構成は **AGM AG32VF407VGT6（AGRV2KL100）**、8 MiBパラレルNOR、128 KiB外部SRAM、256 KiBセーブ用SPI NOR、USB Full-Speed、microSD SPI、追加ステレオ音声、外付けバス変換ICで構成する。PSoCを前提としたRTL・ピン配置・UDB・CPU・ツールチェーンは現行仕様に含めない。
+SFCBuilderはSFC/SNES用のRISC-V＋FPGA拡張カートリッジである。現行構成は **AGM AG32VF407VGT6（AGRV2KL100）**、8 MiBパラレルNOR、128 KiB外部SRAM、256 KiBセーブ用SPI NOR、USB Full-Speed、microSD SPI、追加ステレオ音声、外付けバス変換ICで構成する。現行実装の基準はAGM向けのFPGAプロジェクトと配置配線検証記録とする。
 
 ## 仕様の優先順位と実装状態
 
@@ -46,4 +46,4 @@ SFCBuilderはSFC/SNES用のRISC-V＋FPGA拡張カートリッジである。現�
 - [production.md](production.md)：Rev.0.9のBOM、PCB、製造計画。
 - [references.md](references.md)：現行部品・ツールとSFC資料。
 
-過去のPSoC構成、Rev.0.7以前のRTLと代替アーキテクチャは現行Docsから削除した。変更履歴が必要な場合はGit履歴で参照する。
+旧アーキテクチャの実験資料と現在採用していないRTLは現行Docsから削除した。変更履歴はGitコミットで参照する。

@@ -1,10 +1,10 @@
 # AGM AG32VF407VGT6 FPGA開発・ビルド
 
-Rev.0.9の正規開発ターゲットは **AG32VF407VGT6（AGRV2KL100）**。RISC-Vのソフトウェア開発にはAgRV SDK、ハードIP接続トップにはPrepare LOGIC、FPGA合成・配置配線にはAGM Supra Nativeを使用する。旧PSoCやUDB、Quartusを前提としない。
+Rev.0.9の正規開発ターゲットは **AG32VF407VGT6（AGRV2KL100）**。RISC-Vのソフトウェア開発にはAgRV SDK、ハードIP接続トップにはPrepare LOGIC、FPGA合成・配置配線にはAGM Supra Nativeを使用する。合成にはAGMのNativeフローを使用し、Quartusは使用しない。
 
 ## 構成とツール
 
-本番構成はRISC-V 240 MHz、BUSCLK・音声FIR 80 MHz、外部8 MHz水晶由来のDSM、USB用PLL 60 MHzである。AG32のピン接続は [pinout.csv](pinout.csv)、FPGAトップは [../fpga/top.ve](../fpga/top.ve)、Verilogは [../fpga/rtl](../fpga/rtl/) を参照する。Supra Nativeの採用版は2024.08.b0で、Nativeモードの合成・配置配線を使用する。開発はWindows 10/11環境（VMを含む）を想定する。
+本番構成はRISC-V 240 MHz、BUSCLK・音声FIR 80 MHz、外部8 MHz水晶由来のDSM、USB用PLL 60 MHzである。`fpga/audio-clocks.ve` はPrepare LOGICへ96 MHzのFIRクロックを要求する入力断片だが、**本番の `build.ps1` は生成トップ内の独立FIRクロックをBUSCLK 80 MHzの共用配線へ置換する**。したがって最終RTLのFIR動作は96 MHzではなく80 MHzである。AG32のピン接続は [pinout.csv](pinout.csv)、FPGAトップは [../fpga/top.ve](../fpga/top.ve)、Verilogは [../fpga/rtl](../fpga/rtl/) を参照する。Supra Nativeの採用版は2024.08.b0で、Nativeモードの合成・配置配線を使用する。開発はWindows 10/11環境（VMを含む）を想定する。
 
 ```powershell
 cd fpga
