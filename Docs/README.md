@@ -1,27 +1,49 @@
-# SFCBuilder Rev.0.9 現行仕様の正本
+# SFCBuilder Rev.0.9 — AGM AG32VF407VGT6 現行仕様
 
-AG32VF407VGT6（RISC-V＋FPGA）を1チップ制御SoCとし、SFCアドレス18本専用入力＋SFC A6～A11の外部バッファ6本、MEMアドレス23本、共通MEMデータ8本を使用する。U1～U4/U6=74LVC245A×5、U5=SN74LVC8T245×1。GPIOは使用・予約77/78、予備1本（[hardware.md](hardware.md)と[pinout.csv](pinout.csv)に従う）。FPGA開発はAGM Supra Nativeを使用する。
+SFCBuilderはSFC/SNES用のRISC-V＋FPGA拡張カートリッジである。現行構成は **AGM AG32VF407VGT6（AGRV2KL100）**、8 MiBパラレルNOR、128 KiB外部SRAM、256 KiBセーブ用SPI NOR、USB Full-Speed、microSD SPI、追加ステレオ音声、外付けバス変換ICで構成する。PSoCを前提としたRTL・ピン配置・UDB・CPU・ツールチェーンは現行仕様に含めない。
 
-| 現行ファイル | 内容 |
+## 仕様の優先順位と実装状態
+
+仕様書間で記述が異なる場合、**AG32向けの実装については [fpga/rtl](../fpga/rtl/) と [fpga/top.ve](../fpga/top.ve) および [fpga/timing.sdc](../fpga/timing.sdc) を優先**する。RISC-Vのゲームローダ、BIOS、SDK、実機未検証の周辺回路は本ディレクトリの設計仕様を基準とする。実装済みRTLの機能と、ソフトウェア・基板・音響を含む製品全体の完成は区別する。
+
+| 対象 | 現行値／状態 |
 |---|---|
-| [hardware.md](hardware.md) | SFC→レベル変換→SoC→NOR/SRAMの仕様と主要配線 |
-| [pinout.csv](pinout.csv) | AG32VF407VGT6全100物理ピン |
-| [level-shifters.md](level-shifters.md) | U1～U6のチャネル・DIR/OE |
-| [memory.md](memory.md) | NOR/SRAMのピン接続、ROM形式、容量マスク |
-| [bus.md](bus.md) | AHB、所有権、共通MEMデータの調停 |
-| [communication.md](communication.md) | `$5000 CPU_CONTROL`、`$5001 COMMAND`以降の13レジスタ、64アドレス窓、FIFO、IRQ |
-| [firmware.md](firmware.md) | 内蔵Flash共通ファームウェア（Jet・cmixer16音）・RISC-Vアプリ停止/再開・NOR格納イメージのSRAM実行・SRAM BIOS・電源断退避 |
-| [audio.md](audio.md) | cmixer16音＋S-DSP8音、64 kHz・16 bitステレオPCM、80 MHzの5相FIR、17 bitサンプル保持、8 MHzの3次1 bit DSM、アナログ出力 |
-| [power-cic.md](power-cic.md) | 電源・SRAM保持・CIC・リセット |
-| [fpga-development.md](fpga-development.md) | Supra Native、ライセンス、DAP |
-| [verification/ahb-interface.md](verification/ahb-interface.md) | 本番AHBの信号、転送周期、配置配線後のタイミング余裕 |
-| [verification/README.md](verification/README.md) | FPGA合成使用率、同期・非同期タイミング、実機確認項目 |
-| [production.md](production.md) | Rev.0.9 BOM、PCB、販売構想 |
-| [roadmap.md](roadmap.md) | 未検証と実装工程、INT16×4 MACストレッチ目標 |
-| [prototypes/3d-demo/README.md](prototypes/3d-demo/README.md) | Jetによる3D描画・OS起動ロゴ・Rev.0.9 3Dデモ・USB共通映像方式（**152×104、BG1 8bpp 128px＋CGRAM RGB555 24px、上下各8走査線の強制ブランキング、DMA＋HDMA**）と転送・表示検証 |
-| [prototypes/audio-demo/README.md](prototypes/audio-demo/README.md) | 多重PCM・EQ・エフェクト・FIR/3次DSMのデモと音質測定計画 |
-| [rom-compatibility.md](rom-compatibility.md) | 既存ROMの互換性 |
-| [sdk-emulator.md](sdk-emulator.md) | SDK、エミュレータ、カートリッジ→SFC映像転送の共通経路、USB映像モードと共通の152×104表示・強制ブランキング・DMA/HDMA同期 |
-| [references.md](references.md) | 参照資料 |
+| CPU | RV32IMAFC、**本番ビルド240 MHz**（型番仕様上の最大値248 MHz） |
+| FPGAバス・FIR | **80 MHz** |
+| DSM | **8 MHz**、水晶基準 |
+| SFCアドレス | 専用入力18本＋U1の外付け6本 |
+| MEMアドレス／データ | 23 bit／双方向8 bit。U1・U6で所有権を切替 |
+| FPGAバス・AHB・FIFO・ROM制御 | 現行RTLが存在し、シミュレーション・Supra Nativeの配置配線・STAを実施 |
+| FPGAステレオ音声 | 64 kHz・16 bit PCM、80 MHzポリフェーズFIR、320 kHz・17 bit、8 MHz 3次1 bit DSM。RTL検証・配置配線済み |
+| 配置配線結果 | 2026-11-20時点、最小セットアップ **+0.220 ns**、最小ホールド **+0.080 ns**。条件は検証文書を参照 |
+| 基板・FastROM・アナログ音声 | 実機検証前。STA結果だけで外部基板上の成立を保証しない |
+| 共通ファームウェア・Jet・cmixer・SFC BIOS | ソフトウェアの設計仕様。完成済みの統合ファームウェアとしては扱わない |
+| 152×104映像・USB転送・将棋AI | ソフトウェア／表示の実証計画 |
 
-[verilog](verilog/)と[references/verilog](references/verilog/)の旧RTL、[alternatives](alternatives/)の代替検討は**現行仕様から独立した履歴資料**であり、Rev.0.9に採用しない。Rev.0.9のFPGA合成・配置配線結果は[検証記録](verification/README.md)を参照。実機検証は今後の工程とする。
+## ハードウェア・FPGA
+
+- [hardware.md](hardware.md)：AG32VF407VGT6、SFC接続、NOR/SRAM、レベル変換と電源。
+- [pinout.csv](pinout.csv)：100ピンの割当て正本。実際のFPGA入出力は [fpga/top.ve](../fpga/top.ve) と対照する。
+- [level-shifters.md](level-shifters.md)：U1～U6の方向と出力許可、A6～A11の所有権。
+- [memory.md](memory.md)：8 MiB NOR／128 KiB SRAM、ROMマッピング、セーブ用256 KiB SPI NOR。
+- [bus.md](bus.md)：MEM所有権、AHBアドレス、WRAM待機、NOR BUSY、POWER_FAIL。
+- [communication.md](communication.md)：SFC $5000系13レジスタ、RISC-V側MMIO、4バイトFIFO、IRQ。
+- [audio.md](audio.md)：**本番実装の80 MHzポリフェーズFIR**と8 MHz DSM、PCM MMIO、アナログ段。
+- [power-cic.md](power-cic.md)：5 V→3.3 V、電源断検出と二重セーブ、CIC。
+- [fpga-development.md](fpga-development.md)：Supra Native・AgRV SDK・ビルド・デバッグ。
+- [verification/README.md](verification/README.md)：現行本番ビルドの検証一覧。
+- [verification/ahb-interface.md](verification/ahb-interface.md)：AHB周期とタイミング数値。
+
+## ソフトウェア・製造
+
+- [firmware.md](firmware.md)：共通ファームウェア、SRAM実行アプリ、BIOS起動、電源断処理。
+- [rom-compatibility.md](rom-compatibility.md)：HiROM／LoROM／Ex形式と互換性検証。
+- [sdk-emulator.md](sdk-emulator.md)：SDK、エミュレータ、USB／3D共通のSFC映像転送。
+- [prototypes/3d-demo/README.md](prototypes/3d-demo/README.md)：Jetを使用した152×104の描画・表示検証。
+- [prototypes/audio-demo/README.md](prototypes/audio-demo/README.md)：cmixerと既存FPGA音声RTLの結合・音響測定。
+- [prototypes/shogi-ai/README.md](prototypes/shogi-ai/README.md)：RISC-V将棋AI・NNUE検証。
+- [roadmap.md](roadmap.md)：実装済み・未実装と次の実機検証。
+- [production.md](production.md)：Rev.0.9のBOM、PCB、製造計画。
+- [references.md](references.md)：現行部品・ツールとSFC資料。
+
+過去のPSoC構成、Rev.0.7以前のRTLと代替アーキテクチャは現行Docsから削除した。変更履歴が必要な場合はGit履歴で参照する。

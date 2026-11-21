@@ -1,15 +1,38 @@
-# Rev.0.9 FPGA・AHB・MEM所有権
+# Rev.0.9 — AG32 FPGA／AHB／共通メモリ所有権
 
-FPGAはROMマッピング、メモリ制御、AHBコントローラ、通信レジスタ、FIFO、起動固定応答、バス調停を担当する。カートリッジからSFC本体への映像転送でも共通MEM所有権調停を用い、画像本体は共有SRAM、通知は`$5001 COMMAND`等の通信レジスタ/FIFO/IRQを利用する。`$5000 CPU_CONTROL`はゲーム固有RISC-V処理の停止要求、`$5004 BUS_CONTROL`はMEM所有権制御として独立させる。3DデモとUSB映像モードの表示経路は[SDK・USB連携](sdk-emulator.md#カートリッジからsfc本体への映像転送)を参照する。RISC-VはUSB・microSD・ローダ・演算・音声を担当する。CPU→FPGA内部AHB `mem_ahb_*`、FPGA→CPU側`slave_ahb_*`、`ext_dma_*`、`local_int[3:0]`、sys_clock/bus_clock/resetnをPrepare LOGICの自動生成トップで接続する。外部MEM A0～A5・A12～A22の17本はFPGAのSFC/CPUアドレスMUX出力、A6～A11はU1/U6の所有権切替で駆動する。
+SFCBuilderはSFCとAG32がパラレルNOR 8 MiB・外部SRAM 128 KiBの **8 bit共通データバス** を共有する。デュアルポートメモリではなく、FPGAが所有権とストローブを調停する。通常SFC ROM読出しではRISC-V/AHBを通らず、FPGAの非同期アドレス変換でNORに直接アクセスする。
 
-映像転送では**152×104（128px通常BG1 8bpp＋24px動的RGB555）**の共通表示経路を採用し、65C816が共有SRAMを転送元にVRAM DMA・CGRAM/BG1VOFS HDMAを実行する。上下各8走査線の追加強制ブランキングを設けるが、DMA/HDMAの8チャネル共用、HDMAのフレーム先頭初期化、共有MEMの単一所有権を考慮し、表示期間のHDMA読出しとRISC-VによるSRAMへの書込みは所有権FSMで競合させない。実転送時刻と完成バッファの切替を[3Dデモ](prototypes/3d-demo/README.md)の検証条件に従って確認する。
+## 実装済みRISC-V AHBアドレス
 
-CPUのAHBメモリ窓候補は制御0x60000000、FIFO0x60001000、NOR8MiB=0x61000000、SRAM128KiB=0x62000000であり、AG32の実際の外部AHB領域と生成トップのデコードに照合する。8bit MEMの16/32bitアクセスを複数バイトサイクルに変換し、HREADYOUTを使ってCPU側を待機させる。
+| CPUアドレス | FPGAのアクセス先 |
+|---|---|
+| `0x60000000` | MAP_CONFIG |
+| `0x60000004` | PIN_STATUS |
+| `0x60000008` | BOOT_CONTROL |
+| `0x6000000C` | BUS_CONTROL |
+| `0x60001000 + 4 × n`（n=0x00～0x0C） | SFC通信レジスタ13個 |
+| `0x60002000` | PCM FIFO（左右signed 16 bitを書込み） |
+| `0x60002004` | PCM STATUS |
+| `0x60002008` | PCM CONTROL |
+| `0x61000000–0x617FFFFF` | 8 MiBパラレルNOR |
+| `0x62000000–0x6201FFFF` | 128 KiB外部SRAM |
 
-**MEM D0～D7はSFCとNOR/SRAMとAG32で共通のため、CPU所有中にも独立したSFC通信データバスが存在するわけではない。** SFCの$5000特殊応答前にCPU側のメモリストローブを終了・停止し、NOR/SRAM/U5/AG32の出力方向を切替する。SFCのアクセス時間を任意に延長できないため、短いMEMサービス枠、NORプログラム中のBUSY、WRAM側待機プロトコルを含むアービタを実装する。所有権FSMはISOLATE→QUIET→CONFIGURE→GUARD→OWNER、切替時はU1/U6/U5を一時無効化してMEM制御を非選択とする。
+MMIOは32 bit整列アクセスとし、外部MEMは自然整列した8／16／32 bitアクセスを1～4回の8 bit転送に変換する。80 MHz BUSCLK側で処理した結果を240 MHz SYSCLK側へ渡し、`HREADYOUT`を保持する。範囲外や不整列、所有権違反ではAHB ERRORを返す。CPUが直接メモリを参照する間もSFCから同じメモリを読めるという意味ではない。[AHB実装・STA](verification/ahb-interface.md)
 
-CPUへの貸出時間はソフトウェアが管理する。貸出中は65C816をWRAMで待機させ、カートリッジへのCPU・DMA・HDMAアクセスは返却後に再開する。FPGAはCPU所有中にSFC側のU1/U5を無効にし、返却要求後に進行中の転送とNOR BUSYの終了を待つ。貸出時間による強制返却は行わない。
+## 物理バスと所有権
 
-MEM制御4本はAG32 PIN61–64、U1/U6/U5の出力許可制御はPIN65–67、外部MEMデータ8本はPIN78–85を使用する。FPGAはCPUメモリ書込み、BIOS固定応答、SFC通信レジスタ読出しでのみMEMデータ線を駆動する。SFC A6–A11はU1を通り、CPU側のA6–A11はAG32 PIN55–60からU6を通る。PIN55–60はCPU所有時だけ駆動する。所有権切替時はU1/U6の両出力とAG32 PIN55–60をHi-Zにする。
+SFCのA6～A11はU1からMEMへ、CPU側のA6～A11はAG32 PIN55～60からU6へ伝える。二つのバッファを同時に有効化しない。A0～A5とA12～A22のメモリアドレスはFPGA側MUXが生成する。共通MEM D0～D7はPIN78～85、MEM制御4本はPIN61～64、U1/U6/U5の出力許可はPIN65～67に対応する。U5はSFC 5 VとMEM 3.3 V間の双方向データ変換器である。
 
-SlowROM200ns以内を必須、FastROM120ns以内を設計目標とする。SFC→U1→NOR、SFC→U2/U3/U4→FPGA→NOR、SFC /ROMSEL→FPGA→NOR /CE、NOR→U5→SFCの各経路を独立して評価する。Supra Nativeの非同期I/Oタイミング制約・レポートを検証し実機測定を行う。
+所有権変更中はU1/U6/U5の出力とMEM制御を無効化し、バス競合を防ぐ。ゲーム実行中にCPUへ外部MEMを貸す場合、65C816は**WRAM上の待機処理とIRQハンドラ**へ移動してからSFC `$5004 BUS_CONTROL` bit0で貸出を要求する。貸出中は65C816、DMA、HDMAからカートリッジを参照しない。CPU側は `0x6000000C` のbit1で返却要求を出す。
+
+NORが内部書込み・消去中ならBUS_CONTROL bit4でBUSYを通知し、返却はBUSY解除まで保留する。返却予約後にCPUが許されるNORアクセスは書込み・消去完了確認の読出しのみである。FPGAは進行中のバイト転送を完了してSFCへMEMを返し、IRQで通知する。貸出時間の強制打切りは行わない。MEM返却IRQを受けるまでWRAMから戻らない。
+
+## SFC起動と電源断
+
+リセット後のMAP_CONFIG初期値は `0x28`。CPUが物理SRAM `0x1E000–0x1FFFF` に8 KiB BIOSを展開し、BOOT_CONTROLを `0x03` として起動固定応答とBIOS窓を有効化する。ROM設定後にSFCを起動し、`JML $2F6000` からBIOSを実行する。BIOSからの移行時はCPUがBOOT_CONTROLを `0x02`、さらにオーバーレイ終了後 `0x00` として制御する。[FPGA起動手順](../fpga/README.md)
+
+POWER_FAIL時は新しいNORストローブを抑止し、CPUのMEM所有権を保持する。電源復帰後も自動で返却せず、退避完了を確認したCPUがBUS_CONTROL bit5への1書込みで保持を解除する。退避時にはFPGA BUSCLK 80 MHzを維持する。[電源断制御](power-cic.md)
+
+## タイミング
+
+SlowROM 200 nsを必須、FastROM 120 nsを目標とする。現行RTLはSupra Nativeで配置配線済みであるが、入力バッファ・NOR70 ns・U5を含めた最長読出し経路は概算約99.1 nsであり、PCB・SFC入力条件・セットアップの実機測定は残る。[本番検証結果](verification/README.md)
