@@ -1,35 +1,29 @@
-# Rev.0.9 実装・検証計画
+# Rev.0.9 AG32 実装・実機検証ロードマップ
 
-- [ ] AG32の固定機能と77/78使用・予約I/OのSupra Nativeピンフィッティング。
-- [ ] Prepare LOGIC生成トップのAHB・IRQ・DMA/クロック・リセット接続。
-- [ ] FPGAのROM4形式、7段階容量マスク、SRAMデコード、MEMアドレスMUX。
-- [ ] U1/U6の/OE排他、MEM D0–D7の双方向OE、U5 DIR/OEを合成・実機確認。
-- [ ] CPU→FPGA AHBメモリコントローラ、HREADYOUT、NOR/SRAM8bit、SFC優先通信。
-- [ ] `$5000 CPU_CONTROL`（bit0停止要求、`$5002 STATUS` bit3停止完了）、`$5001 COMMAND`以降の13レジスタ、64アドレス通信窓、FIFO、IRQ、ブート固定6バイト、内蔵FlashからのSRAM BIOS展開。
-- [ ] 共通Flashファームウェア（Jet 3D、cmixer 16音を含む）とゲーム固有RISC-V SRAM実行のリンカ/ABI、外部NORのパッケージ配置、起動時ロード・エントリポイント移行、アプリ停止中のSFC通信と電源断退避、退避専用スタックを検証。
-- [x] 64 kHz・16 bitステレオPCM、80 MHzポリフェーズFIR、17 bitサンプル保持、8 MHzの3次DSMを本番構成に統合し、配置配線とSTAを確認。
-- [ ] 音声端子で約22 kHzのアナログLPFを含めた特性を実測。
-- [ ] SlowROM200ns、FastROM120nsのSTA・実機測定と電源/CIC/リセット検証。
-- [ ] PVSnesLib HiROM/SlowROM→LoROM/Ex形式、SDK、エミュレータ。
-- [ ] Jet＋cmixerによるOSの3D起動ロゴ・64kHzステレオDSMジングル、CPU_CONTROL停止・再開・起動診断を検証。
-- [ ] 将棋AI、[3Dグラフィックスデモ](prototypes/3d-demo/README.md)（**152×104**、Mode 3・BG1 8bpp統一、通常128px＋動的RGB555 24px、上下各8走査線の強制ブランキング、約60フィールド/秒の設計目標）、[多重PCM・64kHzステレオDSM音声デモ](prototypes/audio-demo/README.md)、[USB映像転送デモ](sdk-emulator.md#カートリッジからsfc本体への映像転送)（同一PPU表示経路を使用）の実証。CGRAM 6色/走査線のHDMA更新、BG1VOFS、DMA/HDMAのチャネル共用、ブランキング境界の制御、VRAM全更新7,168B、偶奇52＋52画像ラインの実表示位置、共有MEM調停、USBフィールド同期を測定する。
+対象はAG32VF407VGT6、CPU 240 MHz／FPGA BUSCLK・FIR 80 MHz／DSM 8 MHzの現行本番構成とする。「RTL・STA完了」と「実機・製品動作確認」は異なる工程として扱う。[本番FPGA記録](verification/README.md) と [FPGAプロジェクト](../fpga/README.md) を参照する。
 
-回路規模・ピン合法性・実機FastROMは未検証。歴史的RTLの検証結果を現行の合格根拠に使用しない。
+## FPGAと開発基盤
 
-## ストレッチ目標：RISC-V向け INT16×4 積和演算アクセラレータ（未採用・未検証）
+- [x] AG32向け `top.ve`、ピン定義、Supra Nativeプロジェクト、再ビルド手順を用意。
+- [x] ROM4デコード、7段階ROM容量マスク、非同期ROM応答、SFC起動固定応答、SRAM BIOS窓をRTLへ実装。
+- [x] CPU→FPGA AHBの32 bitアクセス、8 bit NOR/SRAM展開、HREADYOUT・HRESP、MMIO制御レジスタ、双方向FIFO、IRQをRTLへ実装。
+- [x] U1/U6/U5の出力許可、MEM所有権・NOR BUSY、WRAM待機を前提とした返却IRQ、POWER_FAIL保持、SPI選択デコーダをRTLへ実装。
+- [x] 64 kHz・16 bit PCM FIFO、80 MHzポリフェーズFIR、8 MHz・3次DSMを統合し、RTLテストと本番配置配線・STAを完了。
+- [x] CPU 240 MHz・FPGA 80 MHz・DSM 8 MHzの本番配置配線で同期タイミング制約に合格（最悪セットアップ+0.220 ns、ホールド+0.080 ns）。
+- [ ] AG32内蔵Flashの起動ファームウェア、外部NOR書込み、SRAM BIOS展開、ゲーム固有RISC-VのSRAM実行と共通ABIを統合。
+- [ ] FPGAの実機ピン・双方向OE・AHB・FIFO・NOR/SRAMを基板上で測定し、SlowROM 200 ns／FastROM 120 nsを確認。
+- [ ] 電源・CIC・SFC /RESET、電源断中のCPU／FPGA／SPIデコーダ動作、セーブ用NORの二重バンクを検証。
+- [ ] RISC-Vソフトウェアの停止／再開と、停止中のSFC通信・電源断退避・復帰を検証。
 
-現行Rev.0.9のROM動作、SFC通信、AHB、外部MEM調停、SlowROM/FastROMタイミングが成立した後に検討する**追加機能**。現行ハードウェアの必須要件・検証済み機能には含めず、FPGA資源と実測性能を見て採否を判断する。
+## ソフトウェア・アプリケーション
 
-### 検討する演算器
+- [ ] PVSnesLibのHiROM/SlowROMサンプル、LoROM/Ex形式、SRAMミラー、ROM容量境界の実機互換性を検証。
+- [ ] SFCBuilder SDKの通信・バス貸出・音声・ローダAPIとエミュレータの拡張機能を実装。
+- [ ] 共通FlashのJetとcmixerを移植し、PCM MMIOを使用する16音ミキシングとSFC標準8音の併用を検証。
+- [ ] 約22 kHzの外部アナログLPFを含む音声端子の周波数特性・SNR/SINAD・THD+Nを測定。
+- [ ] 152×104（128画素8bpp＋24画素動的RGB555）の3D/USB表示で、DMA/HDMA 8チャネル共用、上下8走査線ずつのブランキング、偶奇52＋52ラインの独立性と表示遅延を検証。
+- [ ] Jet 3D起動ロゴ、cmixerのジングル、将棋AI探索・NNUEとSFC通信の統合試験を実施。
 
-- RISC-VからFPGA内部AHB経由で利用するメモリマップド・コプロセッサとし、外部8bitのMEMデータバスは演算データのレジスタアクセスに介在させない。AHBレジスタの実アドレスはPrepare LOGICの生成トップで確認してから定義する。
-- 符号付きINT16を各4レーン、入力ベクトルA/Bは各64bit。4組の16×16→32bit積を合算する**ドット積型MAC**を基本案とする（4レーン独立のアキュムレータ方式ではない）。演算は `ACC ← ACC + Σ(A[i]×B[i]) (i=0..3)`。4積の符号付き完全精度には34bitが必要なため、加算木は少なくとも34bit、連続積和用アキュムレータは64bitを候補とする。
-- CPUとの入出力は32bit AHBレジスタを複数回使用する。演算開始・状態・ACCクリア、結果上位/下位読出しを設け、固定小数点向け算術右シフト・丸め・16/32bit飽和変換は拡張候補とする。
-- 主用途はQ形式の4要素内積・4×4行列変換、固定小数点のグラフィックス処理、FIR/PCM処理。RISC-Vの乗算命令と比較して、AHB転送やコマンド設定の費用を含む総実行時間を評価する。
+## 追加検討：INT16×4ドット積MAC
 
-### 合成・性能評価の条件
-
-- **INT16乗算器1基・2基・4基**の時分割/並列構成を比較し、LUT/FF、ブロックRAM、最大動作周波数、1ドット積のレイテンシ・スループットを測定する。4基完全並列を確定仕様としない。
-- AG32内蔵FPGAの規模（約2,112 LUT4）に対し、Rev.0.9のROMデコード、通信FIFO、AHB、共有MEM所有権制御と統合してSupra Nativeで合成・配置配線し、資源余裕とSTAを評価する。専用DSP乗算器を前提としない。
-- CPU内蔵SRAM/FPGA側バッファを用いた連続処理やDMA連携は将来案とする。単発演算のAHB入出力がRISC-Vソフトウェア処理より高コストになる条件も検証する。
-- 実装採用の判断は、基本機能の完成を妨げないこと、FPGA資源・タイミングに余裕があること、実アプリケーション（行列変換または音声処理）で転送費用込みの性能改善が確認できることを条件とする。
+CPU側AHBへMMIO接続する符号付きINT16×4ドット積型の追加演算器を将来案とする。`ACC ← ACC + Σ(A[i]×B[i])` を想定し、16×16の積4個の和は少なくとも34 bit幅、累積は64 bitを候補とする。乗算器を1／2／4基とした構成についてLUT、FF、BRAM、タイミング、転送負荷込みの処理時間を比較する。現行の1,934／2,112スライス使用率を踏まえ、基本のROM/通信/音声機能を維持できる場合にのみ採否を判断する。現行RTLには未実装。

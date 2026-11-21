@@ -6,7 +6,7 @@
 
 RISC-Vのゲーム固有コードは内蔵Flash上のcmixerを共通音声ライブラリとして利用し、16音をミキシングして16 bit・64 kHzのステレオPCMを生成する。音声素材は必要に応じて外部NORから供給し、音源ごとの再生・パン・ピッチはRISC-Vから直接制御する。FPGAは80 MHzの5相FIRで320 kHz・17 bitに変換する。その値を水晶由来の8 MHz側で25クロック保持し、左右独立の3次1 bit DSMへ渡す。DSM出力はPIN29/30から受動RCとMCP6002による約22 kHzのアクティブLPFを経てSFC AUDIO L/Rへ出力する。
 
-FIRの250クロック枠、固定小数点モデルとの照合、8 MHzへのCDCとSTAは本番構成で確認した。[音声仕様](../../audio.md) · [検証記録](../../verification/ahb-interface.md)
+FIRの250クロック枠、固定小数点モデルとの照合、8 MHzへのCDCとSTAは本番構成で確認した。RISC-Vは `0x60002000` のPCM FIFOへ左右16 bitを1ワードで書込み、`0x60002004` のSTATUSを確認し、`0x60002008` のCONTROLで再生を制御する。[音声仕様](../../audio.md) · [検証記録](../../verification/ahb-interface.md)
 
 ## 実装段階
 

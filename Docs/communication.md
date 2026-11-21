@@ -1,39 +1,38 @@
-# Rev.0.9 SFC↔RISC-V通信・FIFO・IRQ
+# Rev.0.9 — SFCとAG32 RISC-Vの通信
 
-電源投入後、RISC-Vが外部SRAM物理`0x1E000～0x1FFFF`へ8KiBのSFC用BIOSを展開し、ROM形式・MEM所有権設定後にSFC /RESETを解除する。FPGAは`$00:FFFC/FFFD`へ`00/80`、`$00:8000～8003`へ`5C/00/60/2F`の固定6バイトを返し、SFCは`JML $2F6000`を実行する。
+SFC側の65C816はカートリッジの`$5000–$5FFF`窓を通じてAG32内蔵FPGAへ要求を送り、RISC-VはCPU側のAHB MMIO経由でレジスタとFIFOを操作する。通信レジスタはSFC A0～A5の64アドレス周期でミラーされ、MAP_CONFIGのbit7で有効化する。ROM互換のため無効化できる。
 
-## 通信レジスタの現行割当て
+## SFCレジスタ
 
-通信窓は`$00–$3F/$80–$BF:$5000–$5FFF`とし、SFC A0～A5の64アドレス周期でミラーする。有効化レジスタでゲームROMとの競合を避ける。先頭13レジスタを以下のとおり定義し、`$500D～$503F`（オフセット0D～3F）を予約する。
-
-| SFCアドレス | オフセット | レジスタ | 役割 |
+| SFCアドレス | オフセット | 名前 | 機能 |
 |---|---|---|---|
-| `$5000` | `00` | **CPU_CONTROL** | ゲーム固有RISC-V処理の実行・停止制御 |
-| `$5001` | `01` | COMMAND | 汎用コマンド送信 |
-| `$5002` | `02` | STATUS | 汎用処理状態と停止完了通知 |
-| `$5003` | `03` | REPLY | コマンド応答 |
-| `$5004` | `04` | BUS_CONTROL | 外部MEMバス制御 |
-| `$5005` | `05` | TX_DATA | SFC→RISC-V FIFO書込み |
-| `$5006` | `06` | RX_DATA | RISC-V→SFC FIFO読出し |
-| `$5007` | `07` | FIFO_STATUS | FIFO状態 |
-| `$5008` | `08` | IRQ_CONTROL | 割り込み制御 |
-| `$5009` | `09` | IRQ_STATUS | 割り込み状態 |
-| `$500A` | `0A` | LENGTH_L | 転送長下位 |
-| `$500B` | `0B` | LENGTH_H | 転送長上位 |
-| `$500C` | `0C` | ERROR | エラー情報 |
+| `$5000` | 00 | CPU_CONTROL | ゲーム固有RISC-Vアプリの停止要求 |
+| `$5001` | 01 | COMMAND | SFC→RISC-Vコマンド |
+| `$5002` | 02 | STATUS | 処理状態／アプリ停止完了bit3 |
+| `$5003` | 03 | REPLY | RISC-V→SFC応答 |
+| `$5004` | 04 | BUS_CONTROL | 外部MEM貸出 |
+| `$5005` | 05 | TX_DATA | SFC→RISC-V FIFO |
+| `$5006` | 06 | RX_DATA | RISC-V→SFC FIFO |
+| `$5007` | 07 | FIFO_STATUS | TX件数bits2:0、RX件数bits6:4 |
+| `$5008` | 08 | IRQ_CONTROL | 割り込みマスク |
+| `$5009` | 09 | IRQ_STATUS | 割り込み状態とW1C ACK |
+| `$500A` / `$500B` | 0A / 0B | LENGTH_L/H | 転送長 |
+| `$500C` | 0C | ERROR | FIFOエラーとW1C消去 |
 
-## CPU_CONTROLの動作
+`$500D–$503F`は予約する。SFCアクセスは8 bit単位、CPUの対応MMIOは `0x60001000 + 4 × offset` の32 bit境界アクセスで、有効データは下位8 bitである。[本番FPGAのレジスタ定義](../fpga/README.md)
 
-`$5000 CPU_CONTROL`のbit0を`APP_STOP_REQ`とし、`0`でゲーム固有RISC-V処理の実行・再開、`1`で停止を要求する。リセット値は0、bit7～1は予約して書込み時は0とする。CPU_CONTROLの読出し値は保持している要求値とする。`$5002 STATUS` bit3 `APP_STOPPED`は停止完了したときに1、再開したときに0とする。停止要求と実際の停止完了は区別し、65C816はSTATUSを読み出して確認する。
+## 停止制御とIRQ
 
-FPGAはCPU_CONTROLの要求を保持し、CDCを介してRISC-V共通ファームウェアへ通知する。停止対象はゲーム固有のアプリケーションであり、RISC-Vコア全体のクロック停止・リセットは行わない。停止中も共通ファームウェアはSFCコマンド受付、MEM所有権制御、電源断時のセーブデータ退避を継続する。アプリから安全に共通ファームウェアへ制御を戻す割り込み・実行境界と停止完了通知は実装時に検証する。アプリが停止中でも共通制御コマンドとバス制御は利用できる。
+`CPU_CONTROL` bit0の0はゲーム固有RISC-V処理の実行・再開、1は停止要求を意味する。`STATUS` bit3の`APP_STOPPED`は停止完了の通知であり、要求値とは区別する。停止するのはゲーム固有アプリで、共通ファームウェア、SFC通信、メモリ返却、電源断退避を継続する。アプリ停止に必要なRISC-Vファームウェアの実行境界と復帰処理は未完成のソフトウェア工程である。
 
-## FIFO・IRQ・クロックドメイン
+FPGAは `local_int[0]` を通信・CPU貸出要求、`local_int[1]` をアプリ停止要求、`local_int[2]` をPOWER_FAIL通知に使用する。通信のIRQ_STATUSはbit0がコマンド保留、bit1が返信保留、bit2がRXデータあり、bit3がMEM返却通知である。CPUはbit0への1書込みでコマンドをACKし、SFCはbit1/3への1書込みで返信・返却通知をACKする。
 
-双方向FIFOは初期各4バイトとする。FPGAはSFCからの書込みをFIFO・コマンドに保存してRISC-VへIRQ通知し、RISC-Vの返信値を事前にレジスタ/FIFOへ格納する。SFCの/RDサイクルをCPU割り込み処理待ちで延長しない。異なるクロック領域ではFIFOポインタ、ACK、CPU_CONTROLの要求・完了を同期する。IRQと必要に応じたDMA要求はAG32内蔵バスで伝達する。
+## FIFOとREPLYの取り扱い
 
-REPLYの未ACK枠は1件。RISC-VはIRQ_STATUS bit1が0になってからREPLYを登録する。枠が埋まっている間の書込みはAHB ERRORとし、保留中の返信を保持する。SFCの旧返信ACKとRISC-Vの新しい返信の書込みが同じクロックに重なった場合は、その枠を新しい返信に引き継ぐ。
+SFC→CPUのTX、CPU→SFCのRXは各4バイトFIFOである。SFCはTX_DATAに書き、RX_DATAを読み取る。CPUはTX_DATAから読み、RX_DATAへ書く。受信側がデータレジスタを読み取ると先頭データを取り出し、空の読出しは0となる。満杯時の書込みは破棄され、ERROR bit0（TX）またはbit1（RX）がセットされる。
 
-Jet/cmixer専用のSFCレジスタは設けず、ゲーム固有RISC-Vコードが共通Flashのライブラリを直接使用する。SFCとの情報交換にはCOMMAND・FIFO・IRQと共有SRAMを用いる。共有MEMのサービス枠と待機条件は[bus.md](bus.md)、アプリ停止と共通ファームウェアの役割は[firmware.md](firmware.md)を参照する。
+REPLYは未ACKの返信を1件保持する。CPUはIRQ_STATUS bit1が0であることを確認してからREPLYへ書き込む。ACK前の上書き要求は元のREPLYを保持し、AHB ERRORを返す。旧ACKと新REPLYが同時に発生した場合は新しい値を格納する。共通ファームウェアでは [sfcbuilder_try_reply](../fpga/include/sfcbuilder_reply.h) の戻り値に従い、未送信の値を保存して再試行する。
 
-FPGAの固定6バイト応答は起動時に限りSFC A6～A11をデコード対象から外す。RISC-VがBOOT_CONTROLのBOOT_MODEをクリアすると固定応答を解除する。BIOSのSRAM窓はBOOT_CONTROLの別ビットで保持できる。AHB側の起動・返却手順は [FPGA実装仕様](../fpga/README.md) を参照。
+## ブート時の固定応答
+
+内蔵Flashの共通ファームウェアは外部SRAM末尾8 KiBへBIOSを展開する。BOOT_CONTROLにより固定ブート応答を有効にすると、FPGAはSFC `$00:FFFC/FFFD`で`00/80`、`$00:8000–8003`で`5C/00/60/2F`を返し、65C816は`JML $2F6000`を実行する。固定応答はA6～A11をデコードせず、ブート終了時はRISC-VがBOOT_CONTROLのbit0を解除する。[ファームウェア](firmware.md)、[所有権](bus.md)

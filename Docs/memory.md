@@ -38,7 +38,7 @@ FPGAがHiROM/LoROM/ExHiROM/ExLoROMをデコードする。ROM_SIZEの7段階は1
 
 ## セーブデータ用256KiB SPI NOR
 
-外部SRAM 128KiBは通常の3.3Vで駆動し、SFC電源断時の永続化先としてGigaDevice GD25Q20ETIGR（2Mbit=256KiB、SOIC-8）を1個設ける。SPI NORは既存microSD用のSCK/MOSI/MISOを共有し、AG32 PIN23の専用/CSで選択する。ゲームROM用S29GL064S（パラレル8MiB）とは接続・目的を分離する。
+外部SRAM 128KiBは通常の3.3Vで駆動し、SFC電源断時の永続化先としてGigaDevice GD25Q20ETIGR（2Mbit=256KiB、SOIC-8）を1個設ける。SPI NORはmicroSD用のSPI0 SCK/MOSI/MISOを共有する。/CSの切替はCPUのGPIO6 bits3:2をFPGA内のSPIデコーダが登録して行い、AG32 PIN23にSPI NORの/CSを出力する。microSDの/CSはPIN18である。ゲームROM用S29GL064S（パラレル8MiB）とは接続・目的を分離する。
 
 | 領域 | SPI NORアドレス | 内容 |
 |---|---|---|
@@ -50,3 +50,7 @@ SRAM物理0x00000～0x1DFFF（120KiB）だけをバックアップ対象とし�
 ## ゲームパッケージとRISC-V実行イメージ
 
 8MiBパラレルNORはSFCゲームROMだけでなく、ゲーム固有のRISC-V実行バイナリとリソースを格納する。内蔵Flashの共通ローダが、FPGA/AHB経由でNORからRISC-V実行イメージを読み出してAG32内蔵SRAM（CPU側0x20000000を基準とする実行領域）に展開し、エントリポイントへ制御を移す。ゲームROMの物理範囲とRISC-V/リソースの格納範囲はパッケージメタデータで区別し、NORの8MiB総容量内に収める。ROM容量マスクはSFC側のROMアクセスに適用し、ローダによる物理NORアクセスには適用しない。起動時のSFC BIOSは外部SRAM末尾8KiB、RISC-Vアプリケーションの命令フェッチ元はAG32内蔵SRAMとする。詳細は[firmware.md](firmware.md)を参照する。
+
+## AG32の実装済みCPU側アドレス
+
+CPU側の物理NORは `0x61000000–0x617FFFFF`、物理SRAMは `0x62000000–0x6201FFFF` にマップされる。AHBの自然整列8／16／32 bitアクセスはFPGAが8 bitバイト転送に変換する。MAP_CONFIGは `0x60000000`、BOOT_CONTROLは `0x60000008` に実装済みである。実際のアクセス幅、エラー応答、所有権条件は [AHB実装](verification/ahb-interface.md) と [FPGAプロジェクト](../fpga/README.md)を参照する。
