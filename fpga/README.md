@@ -1,10 +1,10 @@
 # SFCBuilder Rev.0.9 FPGA バス実装
 
-対象は AG32VF407VGT6（AGRV2KL100）。[Rev.0.9のピン表](../Docs/pinout.csv)を [top.ve](top.ve) に反映。UART0とSPI0はAG32のハードIP、USBは固定ピン70/71をデバイスモードで使用する。PIN29/30を左右のDSM音声出力に使用する。
+対象は AG32VF407VGT6（AGRV2KL100）。[Rev.0.9のピン表](../Docs/hardware/pinout.csv)を [top.ve](top.ve) に反映。UART0とSPI0はAG32のハードIP、USBは固定ピン70/71をデバイスモードで使用する。PIN29/30を左右のDSM音声出力に使用する。
 
 ## クロック
 
-RISC-VのSYSCLKは240 MHz、FPGAのBUSCLKとFIRは共通の80 MHz、DSMは水晶由来の8 MHz。AHBブリッジはアドレス受理後に待機を挟んで書込みデータを取り込み、応答データを登録してから `HREADYOUT` を上げる。割り込みはSYSCLKで同期し、CPU入力の前に1段追加している。NOR・SRAMのストローブ、MEM所有権切替、SPIデコーダはBUSCLKで動作する。SFCの直接ROM読出しは非同期。[AHB信号・周期・配置配線結果](../Docs/verification/ahb-interface.md)
+RISC-VのSYSCLKは240 MHz、FPGAのBUSCLKとFIRは共通の80 MHz、DSMは水晶由来の8 MHz。AHBブリッジはアドレス受理後に待機を挟んで書込みデータを取り込み、応答データを登録してから `HREADYOUT` を上げる。割り込みはSYSCLKで同期し、CPU入力の前に1段追加している。NOR・SRAMのストローブ、MEM所有権切替、SPIデコーダはBUSCLKで動作する。SFCの直接ROM読出しは非同期。[AHB信号・周期・配置配線結果](../Docs/verification/ahb.md)
 
 CPUファームウェアはPLLを起動してからFPGAのMMIOを使う。電源断退避でCPUだけを低速クロックに切り替える場合も、FPGAの80 MHzを供給するPLLは退避完了まで動作させる。SDKの `SYS_SwitchHSIClock()` はPLLを停止するため、この構成の退避中に呼び出すとFPGAのバス制御も停止する。
 
@@ -42,7 +42,7 @@ MEM D0～D7（PIN78～85）は双方向。FPGAはCPUの外部メモリ書込み�
 
 ## 双方向FIFOと割り込み
 
-[SFC通信レジスタ仕様](../Docs/communication.md)の13オフセットを実装する。各FIFOは4バイト。SFCはTX_DATAに書いてRX_DATAを読み、CPUはTX_DATAを読んでRX_DATAに書く。各FIFOは受信側のデータレジスタ読出しで先頭を取り出す。FIFO_STATUSのbits2:0はTX件数、bits6:4はRX件数。満杯への書込みは破棄し、ERRORのbit0（TX）またはbit1（RX）をセットする。空の読出しは0を返す。
+[SFC通信レジスタ仕様](../Docs/fpga/communication.md)の13オフセットを実装する。各FIFOは4バイト。SFCはTX_DATAに書いてRX_DATAを読み、CPUはTX_DATAを読んでRX_DATAに書く。各FIFOは受信側のデータレジスタ読出しで先頭を取り出す。FIFO_STATUSのbits2:0はTX件数、bits6:4はRX件数。満杯への書込みは破棄し、ERRORのbit0（TX）またはbit1（RX）をセットする。空の読出しは0を返す。
 
 | IRQ_CONTROL / IRQ_STATUS | ビット |
 |---|---|
@@ -92,4 +92,4 @@ AGMのAgRV SDKとSupra Native、PlatformIO環境は、リポジトリと同じ�
 
 新規に配置配線する場合は `-Seed 1234` 等を指定する。保存済みの別の配置を取り込む場合は `-VerifiedRoute <ディレクトリ>` を指定する。従来の `-Audio` 付き呼出しも同じ本番構成を生成する。
 
-[音声仕様とレジスタ](../Docs/audio.md) · [タイミング制約](timing.sdc)
+[音声仕様とレジスタ](../Docs/fpga/audio.md) · [タイミング制約](timing.sdc)
