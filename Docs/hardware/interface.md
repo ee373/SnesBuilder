@@ -1,10 +1,6 @@
 # Rev.0.9 — SFCエッジ端子とAG32インターフェース
 
-
-
 本書はAGM AG32VF407VGT6とSFCエッジ端子の接続、および内蔵FPGAとRISC-Vの接続境界を記載する。100ピンすべての割当ては[物理ピン表](pinout.csv)、外付け変換ICの/OE・DIRは[レベル変換仕様](level-shifters.md)を唯一の正本とする。
-
-
 
 ## SFCエッジ端子
 
@@ -22,8 +18,6 @@
 | 31 / 62 | AUDIO L / R | AG32 PIN29/30のFPGA 1 bit DSM出力 → 受動RC → MCP6002による約22 kHzアクティブLPF |
 | 24/25/55/56 | CIC | PIC12F629 |
 | 27/58、5/36 | +5V、GND | 電源・接地 |
-
-
 
 ## SoCの固定機能と物理ピン
 
@@ -60,8 +54,6 @@
 
 BOOT0=94・BOOT1=37は通常Low、UART復旧時に設定変更可能。JTAG兼用PIN77/89/90はSWDを確保したうえでGPIOへ設定する。MEMアドレス23本、SFCアドレス専用18本、データ8本、SFC制御5本、MEM制御4本、変換OE3本、SD4本、USB3本、DSM音声出力2本、UART2本、SWD2本、BOOT1予約1本を合計して**77本、予備1本**とする（従来75本にSPI NOR /CS・POWER_FAIL入力を追加）。固定電源/NC端子を含む100ピン表は[pinout.csv](pinout.csv)が正本である。
 
-
-
 ## AG32内蔵FPGAとRISC-Vの接続
 
 FPGAはROMマッピング、メモリ制御、AHBコントローラ、通信レジスタ、FIFO、起動固定応答、バス調停を担当する。RISC-VはUSB・microSD・ローダ・演算・音声を担当する。CPU→FPGA内部AHB `mem_ahb_*`、FPGA→CPU側`slave_ahb_*`、`ext_dma_*`、`local_int[3:0]`、sys_clock/bus_clock/resetnをPrepare LOGICの自動生成トップで接続する。外部MEM A0～A5・A12～A22の17本はFPGAのSFC/CPUアドレスMUX出力、A6～A11はU1/U6の所有権切替で駆動する。
@@ -72,10 +64,6 @@ CPU側AHBは本番RTLで制御レジスタ0x60000000～0x6000000C、SFC通信レ
 
 内蔵Flashの共通ファームウェアが外部SRAM物理0x1E000～0x1FFFFへ8KiBのSFC用BIOSを展開し、ROM形式・MEM所有権設定後にSFC /RESETを解除する。FPGAは$00:FFFC/FFFDへ00/80、$00:8000～8003へ5C/00/60/2Fの固定6バイトを返し、SFCが`JML $2F6000`を実行する。通信窓は$00–$3F/$80–$BF:$5000–$5FFF、SFC A0～A5の64アドレス周期とし、有効化レジスタでゲームROMとの競合を避ける。通信レジスタは00 CPU_CONTROL、01 COMMAND、02 STATUS、03 REPLY、04 BUS_CONTROL、05 TX_DATA、06 RX_DATA、07 FIFO_STATUS、08 IRQ_CONTROL、09 IRQ_STATUS、0A/0B LENGTH、0C ERRORの13本とし、0D–3Fを予約する。CPU_CONTROL bit0は0=ゲーム固有処理の実行・再開、1=停止要求、STATUS bit3は停止完了を表す。共通ファームウェアは停止中も動作し、双方向FIFOは初期各4バイトとする。詳細は[communication.md](../fpga/communication.md)を参照する。
 
-
-
 ## 関連仕様
 
-
-
-外部NOR/SRAMの部品側ピンは[メモリ配線](../memory-devices.md)、ROM形式は[FPGAマッピング](../../fpga/rom-mapping.md)、MEM所有権とMMIOは[FPGAバス](../../fpga/bus.md)、電源とCICは[電源仕様](../power.md)と[CIC・SFCリセット](../cic-reset.md)、音声は[FPGA音声](../../fpga/audio.md)を参照する。FPGAの同期STAとSFC実機の性能試験は[検証記録](../../verification/README.md)を参照する。
+外部NOR/SRAMの部品側ピンは[メモリ配線](memory-devices.md)、ROM形式は[FPGAマッピング](../fpga/rom-mapping.md)、MEM所有権とMMIOは[FPGAバス](../fpga/bus.md)、電源とCICは[電源仕様](power.md)と[CIC・SFCリセット](cic-reset.md)、音声は[FPGA音声](../fpga/audio.md)を参照する。FPGAの同期STAとSFC実機の性能試験は[検証記録](../verification/README.md)を参照する。

@@ -32,4 +32,4 @@ NOR DQ0～7物理PIN35,37,39,41,44,46,48,50をMEM D0～D7へ、/CE PIN32←AG32 
 
 SRAM A0～A12←MEM A0～A12、SRAM A13～A16←MEM A16～A19。SRAM /CE1 PIN22←AG32 PIN62、/OE PIN24←PIN63、/WE PIN29←PIN64、CE2 PIN30は3.3Vへ接続し、チップ選択は/CE1およびAG32/FPGAのMEM制御で行う。SRAM D0～7物理PIN13,14,15,17,18,19,20,21←MEM D0～7、VCC PIN32は3.3V、GND PIN16=GND。SRAMアドレス物理端子はA0=12、A1=11、A2=10、A3=9、A4=8、A5=7、A6=6、A7=5、A8=27、A9=26、A10=23、A11=25、A12=4、A13=28、A14=3、A15=31、A16=2。
 
-ROMバンク変換、容量マスクとSRAM優先デコードは[ROMマッピング](../../fpga/rom-mapping.md)で、CPUから見たAHBアドレスは[バス仕様](../../fpga/bus.md)で管理する。セーブ用256 KiB SPI NORの接続は[セーブストレージ](../save-storage.md)を参照する。
+ROMバンク変換、容量マスクとSRAM優先デコードは[ROMマッピング](../fpga/rom-mapping.md)で、CPUから見たAHBアドレスは[バス仕様](../fpga/bus.md)で管理する。セーブ用256 KiB SPI NORの接続は[セーブストレージ](save-storage.md)を参照する。
