@@ -1,6 +1,6 @@
 # AGM AG32VF407VGT6 FPGA開発・ビルド
 
-Rev.0.9の正規開発ターゲットは **AG32VF407VGT6（AGRV2KL100）**。RISC-Vのソフトウェア開発にはAgRV SDK、ハードIP接続トップにはPrepare LOGIC、FPGA合成・配置配線にはAGM Supra Nativeを使用する。合成にはAGMのNativeフローを使用し、Quartusは使用しない。
+Rev.0.9の正規開発ターゲットは **AG32VF407VGT6（AGRV2KL100）**。RISC-Vのソフトウェア開発にはAgRV SDK、ハードIP接続トップにはPrepare LOGIC、FPGA合成・配置配線にはAGM Supra Nativeを使用する。合成・配置配線はAGMのNativeフローで行う。
 
 ## 構成とツール
 
