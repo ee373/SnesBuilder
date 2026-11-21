@@ -31,4 +31,4 @@
 - [Jet C++17ソフトウェア3Dレンダラー](https://github.com/CubeCoders/Jet)
 - [cmixer PCMミキサー](https://github.com/rxi/cmixer)
 
-旧CPU向けの代替SoC資料や部品リンクは削除した。実際の回路設計・部品購入時は採用型番のメーカー最新データシートを確認する。
+回路設計・部品購入時は採用型番のメーカー最新データシートを確認する。
