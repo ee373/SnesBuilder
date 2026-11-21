@@ -1,6 +1,6 @@
 # SFCBuilder Rev.0.9 ハードウェア基本仕様
 
-2026-11-19。AGM AG32VF407VGT6（LQFP100、3.3V、RV32IMAFC最大248MHz、AGRV2K約2112 LUT4）、NOR S29GL064S70TFI023（8MiB、x8、70ns）、SRAM LY62W1024SL-55SLI（128KiB、55ns）、74LVC245APW,118×5、SN74LVC8T245DBR×1、セーブ用SPI NOR GD25Q20ETIGR（256KiB）、CIC PIC12F629、USB Full-Speed、microSD SPI、PIN29/30からのステレオ3次1bit DSM出力（受動RC＋約22kHzアクティブLPF＋MCP6002）を採用する。
+2026-11-21現行。AGM AG32VF407VGT6（LQFP100、3.3V、RV32IMAFC最大248MHz、AGRV2K約2112 LUT4）、NOR S29GL064S70TFI023（8MiB、x8、70ns）、SRAM LY62W1024SL-55SLI（128KiB、55ns）、74LVC245APW,118×5、SN74LVC8T245DBR×1、セーブ用SPI NOR GD25Q20ETIGR（256KiB）、CIC PIC12F629、USB Full-Speed、microSD SPI、PIN29/30からのステレオ3次1bit DSM出力（受動RC＋約22kHzアクティブLPF＋MCP6002）を採用する。
 
 ## ① SFCエッジ端子
 
@@ -106,11 +106,11 @@ SRAM A0～A12←MEM A0～A12、SRAM A13～A16←MEM A16～A19。SRAM /CE1 PIN22�
 
 FPGAがHiROM/LoROM/ExHiROM/ExLoROMをデコードする。ROM_SIZEの7段階は128KiB（物理A17–A22を0）、256KiB（A18–A22を0）、512KiB（A19–A22）、1MiB（A20–A22）、2MiB（A21–A22）、4MiB（A22）、8MiB（マスクなし）とする。非2冪ROMはローダが元ROMの反復規則に沿ってNORへ事前展開する。SRAMにROMマスクは適用しない。HiROM基本アドレスはMEM A0–A21←SFC A0–A21、LoROM基本はMEM A0–A14←SFC A0–A14、MEM A15–A21←SFC A16–A22とし、MEM A22をEx領域の選択に使用する。WRAM/IO/特殊領域とSRAMの優先デコードも行う。SRAM物理0x1E000～0x1FFFFの8KiBへBIOSを配置する。
 
-## FPGA/RISC-Vの接続
+## AG32内蔵FPGAとRISC-Vの接続
 
 FPGAはROMマッピング、メモリ制御、AHBコントローラ、通信レジスタ、FIFO、起動固定応答、バス調停を担当する。RISC-VはUSB・microSD・ローダ・演算・音声を担当する。CPU→FPGA内部AHB `mem_ahb_*`、FPGA→CPU側`slave_ahb_*`、`ext_dma_*`、`local_int[3:0]`、sys_clock/bus_clock/resetnをPrepare LOGICの自動生成トップで接続する。外部MEM A0～A5・A12～A22の17本はFPGAのSFC/CPUアドレスMUX出力、A6～A11はU1/U6の所有権切替で駆動する。
 
-CPUのAHBメモリ窓候補は制御0x60000000、FIFO0x60001000、NOR8MiB=0x61000000、SRAM128KiB=0x62000000であり、AG32の実際の外部AHB領域と生成トップのデコードに照合する。8bit MEMの16/32bitアクセスを複数バイトサイクルに変換し、HREADYOUTを使ってCPU側を待機させる。
+CPU側AHBは本番RTLで制御レジスタ0x60000000～0x6000000C、SFC通信レジスタ0x60001000～0x60001030、音声PCMレジスタ0x60002000～0x60002008、NOR 0x61000000～0x617FFFFF、SRAM 0x62000000～0x6201FFFFにデコードする。詳細は[AHB実装・検証](verification/ahb-interface.md)を参照する。8bit MEMの16/32bitアクセスを複数バイトサイクルに変換し、HREADYOUTを使ってCPU側を待機させる。
 
 **MEM D0～D7はSFCとNOR/SRAMとAG32で共通のため、CPU所有中にも独立したSFC通信データバスが存在するわけではない。** SFCの$5000特殊応答前にCPU側のメモリストローブを終了・停止し、NOR/SRAM/U5/AG32の出力方向を切替する。SFCのアクセス時間を任意に延長できないため、短いMEMサービス枠、NORプログラム中のBUSY、WRAM側待機プロトコルを含むアービタを実装する。所有権FSMはISOLATE→QUIET→CONFIGURE→GUARD→OWNER、切替時はU1/U6/U5を一時無効化してMEM制御を非選択とする。
 
@@ -118,13 +118,13 @@ CPUのAHBメモリ窓候補は制御0x60000000、FIFO0x60001000、NOR8MiB=0x6100
 
 ## 性能と検証
 
-SFCの通常NOR読出しにはRISC-Vソフトウェア処理やAHBを介在させず、FPGAの非同期アドレス変換・メモリ選択で処理する。SlowROM200nsを必須、FastROM120nsを設計目標とする。FPGAピン合法性、双方向データI/O、Supra Native合成、非同期入出力STA、AHBバス、MEM競合、電源/実機タイミングは**後工程で検証する事項**であり、合格済みとは扱わない。
+SFCの通常NOR読出しにはRISC-Vソフトウェア処理やAHBを介在させず、FPGAの非同期アドレス変換・メモリ選択で処理する。SlowROM200nsを必須、FastROM120nsを設計目標とする。AG32向けRTLとピン割当ては現行[FPGAプロジェクト](../fpga/README.md)で実装し、Supra Nativeの合成・配置配線・同期STAは実施済み（CPU 240 MHz、BUSCLK/FIR 80 MHz、DSM 8 MHz）。[検証記録](verification/README.md)に本番の合格値を記載する。PCB上の波形・I/O電気特性・SlowROM/FastROM・電源・音声は実機で検証する。
 
 ## 電源断バックアップの接続
 
 3.3V生成には既存MCP1825Sを使用し、5V側にDGH105Q5R5（5.5V・1F）を配置する。充電は47Ω・1Wで制限し、LM66100DCKR×2でSFC側への逆流防止および充電抵抗を経由しない放電経路を構成する。LMV331W5-7×1がSFC生5Vを検出し、保持3.3V基準の比較結果をAG32 PIN24のPOWER_FAILへ通知する。監視側分圧330kΩ／180kΩ、基準側100kΩ／100kΩ、出力プルアップ100kΩを使用し、監視側4.7nFのパッドは初期DNPとする。基準分圧点の追加コンデンサおよびHiCAP充電完了監視は設けない。詳細は[power-cic.md](power-cic.md)を参照する。
 
-セーブ用SPI NOR GD25Q20ETIGRはSFC用8MiB NORと独立したICであり、microSDとSPI SCK/MOSI/MISOを共有し、PIN23の独立/CSで選択する。電源投入時に128KiB×2バンクから最新正常データをSRAMへ復元し、未使用バンクを消去する。電源断時にはAG32低クロックRunで最大120KiBを退避する。SPI NOR 0.1µFデカップリングを設ける。電源断中のU5・SFC側信号・MEMバス出力の安全状態を検証する。
+セーブ用SPI NOR GD25Q20ETIGRはSFC用8MiB NORと独立したICであり、microSDとSPI0 SCK/MOSI/MISOを共有する。PIN23の独立/CSはFPGA SPIデコーダがGPIO6 bits3:2に基づいて制御する。電源投入時に128KiB×2バンクから最新正常データをSRAMへ復元し、未使用バンクを消去する。電源断時にはAG32低クロックRunで最大120KiBを退避する。SPI NOR 0.1µFデカップリングを設ける。電源断中のU5・SFC側信号・MEMバス出力の安全状態を検証する。
 
 ## 内蔵Flash・RISC-V実行領域と音声回路
 

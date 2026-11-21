@@ -14,3 +14,7 @@ U1とU6のB側CH0～5を同一MEM A11～A6へ接続する。SFC所有時にはU1
 
 U5 SN74LVC8T245DBRはVCCA PIN1=5V、VCCB PIN23/24=3.3V、GND PIN11～13、SFC D0～D7→A側PIN3～10、MEM D0～D7→B側PIN21～14。DIR PIN2=SFC /RD（LowでMEM→SFC、HighでSFC→MEM）。/OE PIN22は5Vプルアップ、AG32 PIN67→N-MOSFETによるLow駆動で有効化する。AG32のMEM D0～D7はU5・NOR・SRAMと物理共通であり、FPGAの双方向出力許可を引き続き必要とする。
 
+
+## 本番AG32との対応と検証
+
+U1/U6の排他、AG32 PIN55～60のCPU所有時のみの駆動、U5の出力許可とMEM D0～D7のHi-Zは [現行RTL](../fpga/rtl/sfcbuilder.v) と [ピン割当て](../fpga/top.ve) を基準とする。Supra Nativeの配置配線とSTAは[検証記録](verification/README.md)のとおり実施している。実基板では5 V側の入力電圧許容、電源断時の逆給電、バス方向切替、U1/U6/U5の競合と立上り・立下り時間を確認する。

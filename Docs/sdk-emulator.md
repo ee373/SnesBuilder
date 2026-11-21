@@ -1,10 +1,12 @@
 # Rev.0.9 SDK・エミュレータ・USB連携
 
-SFC側はPVSnesLibで65C816 HiROM/SlowROM最小サンプルを起動し、RISC-V側はVS Code＋AgRV SDK、FPGA側はPrepare LOGIC＋Supra Nativeを使う。SFCBuilder SDKは`$5000 CPU_CONTROL`と`$5001 COMMAND`以降の64アドレス通信窓、FIFO/IRQ、ゲーム固有RISC-V処理の停止・再開、コプロセッサ演算、SRAM、メモリ所有権、NORローダをAPI化する。ares/bsnes/Snes9x等のエミュレータはROM4形式・容量ミラー・SRAM・通信・演算要求のゲームから見える挙動を再現する。
+SFC側はPVSnesLibで65C816 HiROM/SlowROM最小サンプルを実装する計画であり、RISC-V側はVS Code＋AgRV SDK、FPGA側はPrepare LOGIC＋Supra Nativeを用いる。FPGA本番RTLはCPU 240 MHz／BUSCLK・FIR 80 MHz／DSM 8 MHzで合成・配置配線済みだが、SDK・SFC表示プログラム・USBアプリの完成とは区別する。SFCBuilder SDKは`$5000 CPU_CONTROL`と`$5001 COMMAND`以降の64アドレス通信窓、FIFO/IRQ、ゲーム固有RISC-V処理の停止・再開、コプロセッサ演算、SRAM、メモリ所有権、NORローダをAPI化する。ares/bsnes/Snes9x等のエミュレータはROM4形式・容量ミラー・SRAM・通信・演算要求のゲームから見える挙動を再現する。
 
 USB Full-SpeedではAG32をデバイス、PC/Raspberry Piをホストとし、画像・音声・操作・デバッグを双方向転送する。USBが接続されなくても通常ROMを起動可能とする。
 
 ## カートリッジからSFC本体への映像転送
+
+FPGAとの物理インターフェースには実装済みの[CPU MMIO](bus.md)と[通信レジスタ](communication.md)を使用する。MEM貸出中の65C816はWRAM上で待機し、返却IRQの後にDMA/HDMAのカートリッジソース参照を再開する。RISC-Vと65C816が外部SRAMを同時に参照する方式ではない。
 
 **3DデモとUSB映像転送モードはSFC側の表示方式を共通化する。** 共通の唯一の解像度目標は**152×104**であり、[3DデモのMode 3・BG1 8bpp統一方式](prototypes/3d-demo/README.md)を使用する。左128画素は通常8bppタイルをVRAM DMAで更新し、右24画素は固定8bppタイルの参照するCGRAM RGB555をHDMAで更新する。上下各8走査線の強制ブランキングを利用し、表示する208走査線ではBG1VOFS HDMAにより4走査線で1画像ラインを参照する。解像度のストレッチ目標は設定しない。
 

@@ -1,10 +1,10 @@
 # Rev.0.9 NNUE格納・演算計画
 
-AG32 RV32IMAFC最大248MHz、CPU内蔵SRAM128KiB、外部NOR8MiB、外部SRAM128KiBを使用する。PCで学習・重み圧縮し、実機では整数演算と差分更新・部分復号を実施する。CPU SRAMに探索スタック/Accumulator、NORにゲームROM/圧縮NNUE、外部SRAMに置換表/セーブ、microSDに外部資産を配置する。実ファイルの圧縮率で容量を確定し、SFCとのMEM共有・WRAM待機を含めてメモリ帯域を測定する。
+AG32 RV32IMAFC（本番240MHz・型番上限248MHz）、CPU内蔵SRAM128KiB、外部NOR8MiB、外部SRAM128KiBを使用する。PCで学習・重み圧縮し、実機では整数演算と差分更新・部分復号を実施する。CPU SRAMに探索スタック/Accumulator、NORにゲームROM/圧縮NNUE、外部SRAMに置換表/セーブ、microSDに外部資産を配置する。実ファイルの圧縮率で容量を確定し、SFCとのMEM共有・WRAM待機を含めてメモリ帯域を測定する。
 
 ## 高速CPUを活用した探索・NNUE配置方針（2026-11-20）
 
-AG32のRV32IMAFC（最大248MHz、整数乗算／除算・単精度FPU対応）と内蔵SRAM128KiBを活用する。初期段階はNNUEより先に、CPU単独での合法手生成・通常評価・探索を計測し、後続の最適化の基準値とする。量子化したNNUEは整数演算を基本とし、Accumulatorの差分更新と重みの圧縮・部分復号を検討する。
+AG32のRV32IMAFC（本番240MHz、整数乗算／除算・単精度FPU対応）と内蔵SRAM128KiBを活用する。初期段階はNNUEより先に、CPU単独での合法手生成・通常評価・探索を計測し、後続の最適化の基準値とする。量子化したNNUEは整数演算を基本とし、Accumulatorの差分更新と重みの圧縮・部分復号を検討する。
 
 CPU内蔵SRAMは盤面、探索スタック、頻繁に参照する状態とAccumulatorを優先する。NOR8MiBにはゲームROMと圧縮NNUE重みを配置し、外部SRAM128KiBは置換表やセーブ用途と競合を調整する。NORは8bit共有MEMバス経由のため、毎評価で大容量の重みを読み直さず、キャッシュ、差分更新、データ配置を工夫する。必要メモリ量、実圧縮率、重みアクセス数、NOR読出し帯域、MEM所有権競合を実測して設計を確定する。
 

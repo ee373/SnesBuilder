@@ -57,6 +57,10 @@ Supra Native `af.exe` 2024.08.b0、シード1234、EFFORT=high、FITTING=timing�
 
 採用バイナリのSHA-256は `CDF97381273FBC7B8BAE67F5BD1D4683FE7A721BC18EAA6200BAB4BCC3E14991`。本番手順で合成したネットリストと合格配置の入力を照合し、配置配線データを再読込みして4種のタイミング解析に合格したバイナリを採用した。同一シードの新規配置でも結果が変わるため、既定ビルドでは入力ハッシュが一致する同梱の合格済み配置を再解析する。[ビルド手順](../../fpga/README.md#ビルド)
 
-[通常セットアップ](../../fpga/rtl/alta_db/setup_summary.rpt) · [高速セットアップ](../../fpga/rtl/alta_db/setup_fast_summary.rpt) · [通常ホールド](../../fpga/rtl/alta_db/hold_summary.rpt) · [高速ホールド](../../fpga/rtl/alta_db/hold_fast_summary.rpt)
+`fpga/rtl/alta_db/setup_summary.rpt`（ビルド時生成） · `fpga/rtl/alta_db/setup_fast_summary.rpt`（ビルド時生成） · `fpga/rtl/alta_db/hold_summary.rpt`（ビルド時生成） · `fpga/rtl/alta_db/hold_fast_summary.rpt`（ビルド時生成）
 
 RTLでは、連続AHBアクセス、エラー応答の保持と直後の正常アクセス、3本の割り込みの発生・解除、音声FIFOとFIR、電源断を含むNOR転送290件を確認した。外部バスの基板上タイミングとアナログ音声は実機で検証する。
+
+## ソース管理された検証資料
+
+本番の合格済み配置は [verified-route](../../fpga/verified-route/) の入力ハッシュと配置データで管理する。`fpga/rtl/top.bin`、`fpga/rtl/alta_db/`はビルド時の生成物であり、リポジトリのブランチ上にレポートファイルが常に存在するわけではない。検証数値を再確認する際には[再ビルド手順](../../fpga/README.md)の入力ハッシュ照合と配置配線後STAを実行する。
